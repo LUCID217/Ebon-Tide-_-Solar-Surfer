@@ -106,8 +106,9 @@ func is_rewarded_ready() -> bool:
 
 func _is_pass_active() -> bool:
 	# Safe check — EbonPass autoload may not exist in editor
-	if Engine.has_singleton("EbonPass") or get_node_or_null("/root/EbonPass"):
-		return EbonPass.is_active()
+	var ebon_pass = get_node_or_null("/root/EbonPass")
+	if ebon_pass and ebon_pass.has_method("is_active"):
+		return ebon_pass.is_active()
 	if get_node_or_null("/root/GameData"):
 		return GameData.ebon_pass_active
 	return false

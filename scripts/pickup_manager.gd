@@ -99,14 +99,19 @@ func _update_magnet_timer(delta: float) -> void:
 
 # ============ SPAWNING ============
 
+func check_spawn_pickup() -> void:
+	var player_z = player.global_position.z
+	# Player travels in -Z, so check if they've passed the next threshold
+	if player_z > next_spawn_check_z:
+		return
+	next_spawn_check_z = player_z - SPAWN_CHECK_DISTANCE
 
-	
 	# Random chance to spawn
 	if randf() < PICKUP_SPAWN_CHANCE:
 		var spawn_z = player_z - 120.0  # Spawn ahead
 		var lane = PICKUP_LANES[randi() % PICKUP_LANES.size()]
 		var spawn_x = lane * LANE_WIDTH
-		
+
 		# Pick random pickup type, weighted by usefulness
 		var pickup_type = choose_pickup_type()
 		spawn_pickup(Vector3(spawn_x, 1.0, spawn_z), pickup_type)
