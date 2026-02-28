@@ -16,6 +16,10 @@ const CORNER_TAPS_NEEDED: int = 5
 const CORNER_TAP_WINDOW: float = 2.0  # Seconds to complete all taps
 
 func _ready() -> void:
+	# P0 fix: gate behind debug builds — auto-removes in production exports
+	if not OS.is_debug_build():
+		queue_free()
+		return
 	process_mode = Node.PROCESS_MODE_ALWAYS  # Work even when paused
 	call_deferred("setup")
 

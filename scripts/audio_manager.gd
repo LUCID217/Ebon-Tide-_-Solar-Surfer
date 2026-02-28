@@ -68,15 +68,15 @@ func _process(delta: float) -> void:
 	
 	match fade_direction:
 		"down":
-			# Fade active player down (death/wipe)
-			active_player.volume_db = lerp(target_volume_db, -40.0, t)
+			# P1 fix: fade all the way to -80dB (silence), not just -40dB (half volume pop)
+			active_player.volume_db = lerp(target_volume_db, -80.0, t)
 			if t >= 1.0:
 				paused_position = active_player.get_playback_position()
 				active_player.volume_db = -80.0
 				is_fading = false
 		"up":
-			# Fade active player up (restart/resume)
-			active_player.volume_db = lerp(-40.0, target_volume_db, t)
+			# P1 fix: fade from full silence (-80dB) back up to target
+			active_player.volume_db = lerp(-80.0, target_volume_db, t)
 			if t >= 1.0:
 				active_player.volume_db = target_volume_db
 				is_fading = false

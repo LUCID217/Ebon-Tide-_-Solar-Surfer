@@ -134,11 +134,8 @@ func _process(delta: float) -> void:
 		var item = current_display_items[i]
 		if item and is_instance_valid(item) and item.visible:
 			item.position.y = sin(elapsed_time * 2.0 + i * 0.8) * 0.1
-	if fang_rock:
-		fang_rock.rotation.y = sin(elapsed_time * 0.15) * 0.03
-	for light in backdrop_lights:
-		if is_instance_valid(light):
-			light.light_energy = 1.5 + sin(elapsed_time * 4.0 + light.position.x) * 0.4
+	# P2 fix: fang_rock and backdrop_lights removed — these nodes don't exist
+	# in the scene and looping over them every frame was dead weight
 	
 	# Animate black market objects
 	animate_black_market_objects()
@@ -394,9 +391,9 @@ func setup_camera() -> void:
 	pass
 
 func setup_carousel() -> void:
-	# Carousel root is now created inside setup_carousel_viewport
+	# P2 fix: carousel root is created inside setup_carousel_viewport
+	# The dangling add_child(carousel_root) after pass caused a double-add crash
 	pass
-	add_child(carousel_root)
 
 func create_all_meshes() -> void:
 	crew_ids = GameData.RIDERS.keys()
@@ -2018,24 +2015,34 @@ func _on_free_spin() -> void:
 	print("Won ", reward, " marks!")
 
 func _on_ad_coins() -> void:
+	# P2 fix: use real rewarded ad flow instead of granting free currency
+	var ads_mgr = get_node_or_null("/root/AdsManager")
+	if ads_mgr and ads_mgr.is_rewarded_ready():
+		ads_mgr.rewarded_ad_watched.connect(_on_rewarded_marks, CONNECT_ONE_SHOT)
+		ads_mgr.show_rewarded()
+	else:
+		print("[PLACEHOLDER] Rewarded ad not ready yet")
+
+func _on_rewarded_marks(_reward_type: String, _reward_amount: int) -> void:
 	GameData.add_marks(100)
 	update_currency_display()
-	print("Ad watched: +100 marks")
+	print("Rewarded ad watched: +100 marks")
 
 func _on_buy_bits() -> void:
-	# IAP: $1.99 for 6 Bits (= 1 Sovereign)
-	GameData.add_bits(6)
-	update_currency_display()
-	print("IAP: Bought 6 Bits for $1.99")
+	# P2 fix: placeholder only — real IAP not implemented yet
+	print("[IAP PLACEHOLDER] Would purchase 6 Bits for $1.99 — implement billing plugin")
 
 func _on_buy_sovereigns() -> void:
-	# IAP: $11.99 for 6 Sovereigns
-	GameData.add_sovereigns(6)
-	update_currency_display()
-	print("IAP: Bought 6 Sovereigns for $11.99")
+	# P2 fix: placeholder only — real IAP not implemented yet
+	print("[IAP PLACEHOLDER] Would purchase 6 Sovereigns for $11.99 — implement billing plugin")
 
 func _on_ebon_pass() -> void:
-	print("IAP: Buy Ebon Pass for $6.99/mo")
+	# Wire up to EbonPass autoload when plugin is installed
+	var ebon_pass_mgr = get_node_or_null("/root/EbonPass")
+	if ebon_pass_mgr:
+		ebon_pass_mgr.purchase()
+	else:
+		print("[IAP PLACEHOLDER] EbonPass autoload not found — install Google Play Billing plugin")
 
 # ============ EXCHANGE MENU ============
 var exchange_marks_input: int = 1
@@ -2113,11 +2120,14 @@ func do_exchange_action() -> void:
 			if GameData.exchange_bits_to_sovereigns(1):
 				print("Exchanged 6 Bits → 1 Sovereign")
 		2:  # Sovereigns → Bits (trade down)
-			if GameData.sovereigns >= 1:
-				GameData.sovereigns -= 1
-				GameData.bits += 6
-				GameData.save_game()
-				print("Exchanged 1 Sovereign → 6 Bits")
+			# P2 fix: explicit "not enough" guard
+			if GameData.sovereigns < 1:
+				print("Not enough Sovereigns to trade")
+				return
+			GameData.sovereigns -= 1
+			GameData.bits += 6
+			GameData.save_game()
+			print("Exchanged 1 Sovereign → 6 Bits")
 	
 	update_currency_display()
 	update_exchange_display()

@@ -72,10 +72,11 @@ func create_floor() -> void:
 	floor_body = StaticBody3D.new()
 	var floor_collision = CollisionShape3D.new()
 	var floor_shape = BoxShape3D.new()
-	floor_shape.size = Vector3(LANE_WIDTH * 6, 1.0, 10000.0)
+	# P0 fix: floor moves with player in _process so it never runs out
+	floor_shape.size = Vector3(LANE_WIDTH * 6, 1.0, TRACK_SEGMENT_LENGTH * NUM_SEGMENTS * 2)
 	floor_collision.shape = floor_shape
 	floor_body.add_child(floor_collision)
-	floor_body.position = Vector3(0, -0.5, -5000.0)
+	floor_body.position = Vector3(0, -0.5, 0)
 	add_child(floor_body)
 
 func create_track_segments() -> void:
@@ -102,9 +103,10 @@ func create_lane_rails() -> void:
 func create_rail(x_pos: float) -> MeshInstance3D:
 	var mesh_instance = MeshInstance3D.new()
 	var box_mesh = BoxMesh.new()
-	box_mesh.size = Vector3(0.3, RAIL_HEIGHT, 10000.0)
+	# P0 fix: rails are short and move with player, not a 10km static slab
+	box_mesh.size = Vector3(0.3, RAIL_HEIGHT, TRACK_SEGMENT_LENGTH * NUM_SEGMENTS * 2)
 	mesh_instance.mesh = box_mesh
-	mesh_instance.position = Vector3(x_pos, 0.15, -5000.0)
+	mesh_instance.position = Vector3(x_pos, 0.15, 0)
 	mesh_instance.material_override = light_rail_material
 	return mesh_instance
 
@@ -138,6 +140,12 @@ func _process(_delta: float) -> void:
 		return
 	
 	var player_z = player.position.z
+	
+	# P0 fix: move floor and rails with the player so they never run out
+	if floor_body:
+		floor_body.position.z = player_z
+	for rail in rails:
+		rail.position.z = player_z
 	
 	for segment in segments:
 		if segment.position.z > player_z + TRACK_SEGMENT_LENGTH:

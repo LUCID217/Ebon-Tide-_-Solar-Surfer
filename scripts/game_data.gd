@@ -4,6 +4,7 @@ extends Node
 # Add to Project Settings > Autoload as "GameData"
 
 const SAVE_PATH: String = "user://ebon_tide_save.dat"
+const SAVE_VERSION: int = 1
 
 # Currency - Three tier system
 var marks: int = 0        # Everyday currency (earned from runs, ads)
@@ -41,6 +42,10 @@ var screen_shake: bool = true
 var haptic_feedback: bool = true
 var graphics_quality: int = 1  # 0=Low, 1=Medium, 2=High
 var last_track_index: int = -1  # Persists music rotation across sessions
+
+# Ebon Pass
+var ebon_pass_active: bool = false
+var last_cache_claim_time: int = 0  # Unix timestamp of last daily cache claim
 
 # ============ RIDER DATA ============
 # Cursed crew members of the Ebon Tide universe
@@ -157,99 +162,90 @@ const BOARDS: Dictionary = {
 }
 
 # ============ SYNERGY SYSTEM ============
-# Every choice matters. Nothing is free.
 const SYNERGIES: Dictionary = {
-	# Positive synergies - lore-appropriate pairings
 	"korr+void_runner": {
 		"type": "synergy",
 		"name": "Path Through Darkness",
 		"description": "The navigator finds her element in the void.",
-		"bonus": {"handling": 0.1, "path_sight_bonus": 0.05}  # +10% handling, +5% phase chance
+		"bonus": {"handling": 0.1, "path_sight_bonus": 0.05}
 	},
 	"jubari+tidebreaker": {
 		"type": "synergy",
 		"name": "Drowned Men's Pride",
 		"description": "A captain reunited with his people's craft.",
-		"bonus": {"charge": 0.15, "shadow_resist_bonus": 0.15}  # +15% charge, +15% better shadow resist
+		"bonus": {"charge": 0.15, "shadow_resist_bonus": 0.15}
 	},
 	"emissary+harrowed_blessing": {
 		"type": "synergy",
 		"name": "Golden Age Restored",
 		"description": "She remembers when such things were made. It remembers her.",
-		"bonus": {"speed": 0.1, "charge": 0.1}  # +10% speed, +10% charge
+		"bonus": {"speed": 0.1, "charge": 0.1}
 	},
 	"thornveil+dominion_cutter": {
 		"type": "synergy",
 		"name": "Calculated Edge",
 		"description": "Precision vessel for a precise man.",
-		"bonus": {"speed": 0.05, "lucky_bonus": 0.1}  # +5% speed, +10% more coins
+		"bonus": {"speed": 0.05, "lucky_bonus": 0.1}
 	},
 	"kresh+tidebreaker": {
 		"type": "synergy",
 		"name": "Unstoppable Force",
 		"description": "Reinforced hull. Reinforced will.",
-		"bonus": {"shield_duration": 2.0}  # Shield lasts 2s longer
+		"bonus": {"shield_duration": 2.0}
 	},
 	"default+default": {
 		"type": "synergy",
 		"name": "Survivor's Instinct",
 		"description": "Rust and stubbornness. It's enough.",
-		"bonus": {"revive_heal": true}  # Revive also repairs sail
+		"bonus": {"revive_heal": true}
 	},
-	
-	# Anti-synergies - choices have consequences
 	"jubari+dominion_cutter": {
 		"type": "anti_synergy",
 		"name": "Bad Blood",
 		"description": "A pirate on a Dominion vessel. Neither forgives.",
-		"penalty": {"charge": -0.15, "speed": -0.05}  # -15% charge, -5% speed
+		"penalty": {"charge": -0.15, "speed": -0.05}
 	},
 	"default+harrowed_blessing": {
 		"type": "anti_synergy",
 		"name": "Cursed Conflict",
 		"description": "Borrowed time meets blessed relic. The Empress notices.",
-		"penalty": {"charge": -0.2}  # -20% charge - the blessing rejects him
+		"penalty": {"charge": -0.2}
 	},
 	"kresh+dominion_cutter": {
 		"type": "anti_synergy",
 		"name": "Broken Chain's Shame",
 		"description": "The enforcer in enemy colors. His masters would not approve.",
-		"penalty": {"speed": -0.1}  # -10% speed - hesitation
+		"penalty": {"speed": -0.1}
 	},
 	"emissary+default": {
 		"type": "anti_synergy",
 		"name": "Beneath Her",
 		"description": "A Golden Age witch on salvaged scraps. Insulting.",
-		"penalty": {"charge": -0.1, "speed": -0.1}  # She's not trying
+		"penalty": {"charge": -0.1, "speed": -0.1}
 	},
 	"thornveil+tidebreaker": {
 		"type": "anti_synergy",
 		"name": "Wrong Table",
 		"description": "A gambler doesn't play by pirate rules.",
-		"penalty": {"lucky_bonus": -0.15}  # His luck doesn't work here
+		"penalty": {"lucky_bonus": -0.15}
 	}
 }
 
 func get_synergy(rider_id: String, board_id: String) -> Dictionary:
 	var key1 = rider_id + "+" + board_id
-	var key2 = board_id + "+" + rider_id  # Check both orders
-	
+	var key2 = board_id + "+" + rider_id
 	if SYNERGIES.has(key1):
 		return SYNERGIES[key1]
 	elif SYNERGIES.has(key2):
 		return SYNERGIES[key2]
-	
-	return {}  # No synergy or anti-synergy
+	return {}
 
 func get_current_synergy() -> Dictionary:
 	return get_synergy(current_rider, current_board)
 
 func get_effective_stats() -> Dictionary:
-	# Start with board base stats
 	var board = BOARDS.get(current_board, BOARDS["default"])
 	var stats = board.stats.duplicate()
-	
-	# Apply synergy/anti-synergy
 	var synergy = get_current_synergy()
 	if synergy.size() > 0:
 		if synergy.type == "synergy" and synergy.has("bonus"):
@@ -259,8 +255,7 @@ func get_effective_stats() -> Dictionary:
 		elif synergy.type == "anti_synergy" and synergy.has("penalty"):
 			for stat in synergy.penalty.keys():
 				if stats.has(stat):
-					stats[stat] += synergy.penalty[stat]  # Penalties are negative
-	
+					stats[stat] += synergy.penalty[stat]
 	return stats
 
 # ============ CURRENCY EXCHANGE ============
@@ -300,7 +295,7 @@ func add_sovereigns(amount: int) -> void:
 	sovereigns += amount
 	save_game()
 
-# ============ UNLOCK FUNCTIONS (Updated for Sovereigns) ============
+# ============ UNLOCK FUNCTIONS ============
 func unlock_rider_with_sovereigns(rider_id: String) -> bool:
 	if rider_id in unlocked_riders:
 		return false
@@ -340,6 +335,7 @@ func can_afford_board(board_id: String) -> bool:
 # ============ SAVE/LOAD ============
 func save_game() -> void:
 	var save_data = {
+		"save_version": SAVE_VERSION,
 		"marks": marks,
 		"bits": bits,
 		"sovereigns": sovereigns,
@@ -357,9 +353,10 @@ func save_game() -> void:
 		"screen_shake": screen_shake,
 		"haptic_feedback": haptic_feedback,
 		"graphics_quality": graphics_quality,
-		"last_track_index": last_track_index
+		"last_track_index": last_track_index,
+		"ebon_pass_active": ebon_pass_active,
+		"last_cache_claim_time": last_cache_claim_time
 	}
-	
 	var file = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
 		file.store_var(save_data)
@@ -370,12 +367,10 @@ func load_game() -> void:
 	if not FileAccess.file_exists(SAVE_PATH):
 		print("No save file found, using defaults")
 		return
-	
 	var file = FileAccess.open(SAVE_PATH, FileAccess.READ)
 	if file:
 		var save_data = file.get_var()
 		file.close()
-		
 		if save_data is Dictionary:
 			# Support old saves (coins) and new saves (marks)
 			marks = save_data.get("marks", save_data.get("coins", 0))
@@ -396,6 +391,9 @@ func load_game() -> void:
 			haptic_feedback = save_data.get("haptic_feedback", true)
 			graphics_quality = save_data.get("graphics_quality", 1)
 			last_track_index = save_data.get("last_track_index", -1)
+			# Ebon Pass — defaults to false for old saves
+			ebon_pass_active = save_data.get("ebon_pass_active", false)
+			last_cache_claim_time = save_data.get("last_cache_claim_time", 0)
 			print("Game loaded!")
 
 # ============ CURRENCY ============
@@ -412,7 +410,6 @@ func spend_marks(amount: int) -> bool:
 	return false
 
 # ============ UNLOCKS ============
-# Old functions - redirect to new Sovereign-based system
 func unlock_rider(rider_id: String) -> bool:
 	return unlock_rider_with_sovereigns(rider_id)
 
@@ -443,13 +440,10 @@ func equip_board(board_id: String) -> bool:
 func record_run(distance: float, coins_earned: int) -> void:
 	total_runs += 1
 	total_distance += distance
-	
 	if distance > best_distance:
 		best_distance = distance
-	
 	if coins_earned > best_coins_in_run:
 		best_coins_in_run = coins_earned
-	
 	add_coins(coins_earned)
 
 # ============ PERKS ============

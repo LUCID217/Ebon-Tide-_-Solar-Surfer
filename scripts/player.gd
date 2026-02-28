@@ -251,6 +251,14 @@ func do_jump() -> void:
 		used_boost_jump = false
 	is_jumping = true
 
+func _notification(what: int) -> void:
+	# P1 fix: clear touch state when app loses focus (Android backgrounding)
+	# Prevents stuck inputs when player returns to the game
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		is_touching = false
+		touch_id = -1
+		is_touch_boosting = false
+
 func _input(event: InputEvent) -> void:
 	if is_dead:
 		return

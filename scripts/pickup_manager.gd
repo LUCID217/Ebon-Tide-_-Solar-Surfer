@@ -32,7 +32,7 @@ const PASSIVE_MAGNET_BASE_RANGE: float = 6.0
 const PASSIVE_MAGNET_BASE_SPEED: float = 20.0
 
 # Spawning
-var next_spawn_check_z: float = 100.0
+var next_spawn_check_z: float = -100.0  # P1 fix: negative because player travels in -Z
 var is_active: bool = false
 
 # Signals
@@ -99,13 +99,7 @@ func _update_magnet_timer(delta: float) -> void:
 
 # ============ SPAWNING ============
 
-func check_spawn_pickup() -> void:
-	var player_z = player.position.z
-	
-	if player_z < next_spawn_check_z:
-		return
-	
-	next_spawn_check_z -= SPAWN_CHECK_DISTANCE
+
 	
 	# Random chance to spawn
 	if randf() < PICKUP_SPAWN_CHANCE:
@@ -424,7 +418,7 @@ func reset() -> void:
 	magnet_active = false
 	magnet_timer = 0.0
 	kresh_shield_regen_timer = 0.0
-	next_spawn_check_z = 100.0
+	next_spawn_check_z = -100.0  # P1 fix: negative to match -Z travel direction
 	
 	# Remove shield visual if lingering from previous run
 	_remove_shield_visual()

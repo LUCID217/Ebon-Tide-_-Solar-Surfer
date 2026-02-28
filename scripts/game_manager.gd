@@ -169,20 +169,23 @@ func _resolve_hit(obstacle: Node3D) -> void:
 func check_coin_pickups() -> void:
 	var player_pos = player.global_position
 	
-	# Iterate over a copy since remove_coin modifies the array
-	for coin in obstacle_spawner.coins.duplicate():
+	# P1 fix: collect into a removal list instead of calling .duplicate() per frame
+	var to_remove = []
+	for coin in obstacle_spawner.coins:
 		if not is_instance_valid(coin):
 			continue
 		var coin_pos = coin.global_position
 		var dist = player_pos.distance_to(coin_pos)
-		
 		if dist < 1.5:
-			player.collect_coin()
-			if particles and particles.has_method("emit_coin_collect"):
-				particles.emit_coin_collect(coin_pos)
-			obstacle_spawner.remove_coin(coin)
-			if juice and juice.has_method("on_coin_collect"):
-				juice.on_coin_collect()
+			to_remove.append(coin)
+	
+	for coin in to_remove:
+		player.collect_coin()
+		if particles and particles.has_method("emit_coin_collect"):
+			particles.emit_coin_collect(coin.global_position)
+		obstacle_spawner.remove_coin(coin)
+		if juice and juice.has_method("on_coin_collect"):
+			juice.on_coin_collect()
 
 func _on_player_died() -> void:
 	is_game_over = true
@@ -198,6 +201,11 @@ func _on_player_died() -> void:
 	# Record run stats to GameData
 	if Engine.has_singleton("GameData") or get_node_or_null("/root/GameData"):
 		GameData.record_run(player.distance_traveled, player.coins_collected)
+	
+	# Trigger interstitial ad every 3rd death
+	var ads_mgr = get_node_or_null("/root/AdsManager")
+	if ads_mgr:
+		ads_mgr.on_player_death()
 
 func _on_charge_changed(value: float) -> void:
 	hud.update_charge(value)
