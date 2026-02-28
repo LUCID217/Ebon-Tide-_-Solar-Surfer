@@ -1797,13 +1797,13 @@ func update_black_market_display() -> void:
 	if selected_index == 4:
 		var ebon_pass = get_node_or_null("/root/EbonPass")
 		if ebon_pass and ebon_pass.is_active():
-			item_desc_label.text = "ACTIVE — Sovereign Cache ready!"
+			item_desc_label.text = "ACTIVE — 100 Marks ready!"
 			action_button.text = "COLLECT"
 			var remaining = ebon_pass.get_cache_time_remaining()
 			if remaining > 0:
 				var hours = remaining / 3600
 				var mins = (remaining % 3600) / 60
-				item_desc_label.text = "ACTIVE — Cache in %dh %dm" % [hours, mins]
+				item_desc_label.text = "ACTIVE — Daily Cache in %dh %dm" % [hours, mins]
 				action_button.text = "ACTIVE"
 				action_button.disabled = true
 			else:

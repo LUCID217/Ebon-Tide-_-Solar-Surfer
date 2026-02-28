@@ -14,16 +14,15 @@ extends Node
 # REPLACE with your real product ID from Google Play Console
 const PRODUCT_ID: String = "ebon_pass_monthly"
 
-# Sovereign Cache: bonus currency grant for active Ebon Pass holders
-# 2 Sovereigns every 8 hours — meaningful but not economy-breaking
-# (A full-price rider costs 48 Sovereigns, so ~8 days of caches = 1 rider)
-const CACHE_GRANT_SOVEREIGNS: int = 2
-const CACHE_INTERVAL_SECONDS: int = 28800  # 8 hours
+# Sovereign Cache: daily Marks grant for active Ebon Pass holders
+# 100 Marks once per 24 hours — a nice daily bonus without breaking the economy
+const CACHE_GRANT_MARKS: int = 100
+const CACHE_INTERVAL_SECONDS: int = 86400  # 24 hours
 
 # ============ SIGNALS ============
 signal purchase_completed(success: bool)
 signal purchase_restored(success: bool)
-signal cache_collected(sovereigns: int)
+signal cache_collected(marks: int)
 
 # ============ STATE ============
 var _billing_plugin = null  # Reference to GodotGooglePlayBilling singleton
@@ -31,7 +30,7 @@ var _connected: bool = false
 
 func _ready() -> void:
 	_init_billing()
-	_check_sovereign_cache()
+	_check_daily_cache()
 
 # ============ PUBLIC API ============
 
@@ -136,10 +135,10 @@ func _grant_pass() -> void:
 		print("[EbonPass] Ebon Pass ACTIVATED")
 	purchase_completed.emit(true)
 
-# ============ SOVEREIGN CACHE ============
-## Periodic free currency grant for Ebon Pass holders.
+# ============ SOVEREIGN CACHE (Daily Marks) ============
+## Daily Marks grant for Ebon Pass holders.
 ## Called on startup and can be called from UI to collect.
-func _check_sovereign_cache() -> void:
+func _check_daily_cache() -> void:
 	if not is_active():
 		return
 
@@ -147,14 +146,11 @@ func _check_sovereign_cache() -> void:
 	var elapsed = now - GameData.last_cache_claim_time
 
 	if elapsed >= CACHE_INTERVAL_SECONDS:
-		# Calculate how many intervals have passed (cap at 3 to prevent abuse)
-		var intervals = mini(elapsed / CACHE_INTERVAL_SECONDS, 3)
-		var total_grant = CACHE_GRANT_SOVEREIGNS * intervals
-		GameData.add_sovereigns(total_grant)
+		GameData.add_marks(CACHE_GRANT_MARKS)
 		GameData.last_cache_claim_time = now
 		GameData.save_game()
-		cache_collected.emit(total_grant)
-		print("[EbonPass] Sovereign Cache collected: ", total_grant, " Sovereigns (", intervals, " intervals)")
+		cache_collected.emit(CACHE_GRANT_MARKS)
+		print("[EbonPass] Sovereign Cache collected: ", CACHE_GRANT_MARKS, " Marks")
 
 ## Returns seconds until next cache is available, or 0 if ready now.
 func get_cache_time_remaining() -> int:
@@ -171,5 +167,5 @@ func collect_cache() -> bool:
 		return false
 	if get_cache_time_remaining() > 0:
 		return false
-	_check_sovereign_cache()
+	_check_daily_cache()
 	return true

@@ -90,7 +90,7 @@ gracefully no-op.
    - **Type:** Non-consumable (Managed product)
    - **Price:** $6.99 (or your chosen price point)
    - **Title:** Ebon Pass
-   - **Description:** Remove all ads and unlock the Sovereign Cache
+   - **Description:** Remove all ads and unlock the daily Marks cache
 
    Note: The product ID `ebon_pass_monthly` is defined in
    `scripts/ebon_pass.gd` as the `PRODUCT_ID` constant.
@@ -146,18 +146,17 @@ android/
 
 ## 5. Ebon Pass Economy: Sovereign Cache
 
-When the Ebon Pass is active, players receive a periodic free currency grant
+When the Ebon Pass is active, players receive a daily free currency grant
 called the **Sovereign Cache**:
 
-- **Amount:** 2 Sovereigns per collection
-- **Interval:** Every 8 hours
-- **Cap:** Up to 3 intervals can accumulate (24 hours max = 6 Sovereigns)
+- **Amount:** 100 Marks per collection
+- **Interval:** Once every 24 hours
+- **Stacking:** None — only one collection per cooldown, no accumulation
 - **Collection:** Via the Black Market carousel (Ebon Pass item) or
   automatically on app launch
 
-This fits the existing economy where riders/vessels cost 3-48 Sovereigns.
-At 6 Sovereigns/day, it takes ~8 days to earn the most expensive cosmetic
-purely from the cache — meaningful but not game-breaking.
+100 Marks/day is roughly one run's worth of earnings, giving pass holders
+a daily head start without flooding the economy.
 
 ---
 
