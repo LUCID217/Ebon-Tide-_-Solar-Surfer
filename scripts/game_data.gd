@@ -4,6 +4,7 @@ extends Node
 # Add to Project Settings > Autoload as "GameData"
 
 const SAVE_PATH: String = "user://ebon_tide_save.dat"
+const SAVE_VERSION: int = 1  # Increment when save schema changes
 
 # Currency - Three tier system
 var marks: int = 0        # Everyday currency (earned from runs, ads)
@@ -340,6 +341,7 @@ func can_afford_board(board_id: String) -> bool:
 # ============ SAVE/LOAD ============
 func save_game() -> void:
 	var save_data = {
+		"save_version": SAVE_VERSION,
 		"marks": marks,
 		"bits": bits,
 		"sovereigns": sovereigns,

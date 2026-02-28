@@ -134,11 +134,8 @@ func _process(delta: float) -> void:
 		var item = current_display_items[i]
 		if item and is_instance_valid(item) and item.visible:
 			item.position.y = sin(elapsed_time * 2.0 + i * 0.8) * 0.1
-	if fang_rock:
-		fang_rock.rotation.y = sin(elapsed_time * 0.15) * 0.03
-	for light in backdrop_lights:
-		if is_instance_valid(light):
-			light.light_energy = 1.5 + sin(elapsed_time * 4.0 + light.position.x) * 0.4
+	# fang_rock and backdrop_lights are reserved for future use by create_backdrop()
+
 	
 	# Animate black market objects
 	animate_black_market_objects()
@@ -394,9 +391,8 @@ func setup_camera() -> void:
 	pass
 
 func setup_carousel() -> void:
-	# Carousel root is now created inside setup_carousel_viewport
+	# Carousel root is now created inside setup_carousel_viewport — this function is dead code
 	pass
-	add_child(carousel_root)
 
 func create_all_meshes() -> void:
 	crew_ids = GameData.RIDERS.keys()
@@ -1965,8 +1961,18 @@ func _on_action_pressed() -> void:
 				update_selection_display()
 		MenuState.SHIPYARD:
 			buy_shipyard_item()
+		MenuState.BLACK_MARKET:
+			_handle_black_market_action()
 		MenuState.EXCHANGE:
 			do_exchange_action()
+
+func _handle_black_market_action() -> void:
+	match selected_index:
+		0: _on_free_spin()
+		1: _on_ad_coins()
+		2: _on_buy_bits()
+		3: _on_buy_sovereigns()
+		4: _on_ebon_pass()
 
 func buy_shipyard_item() -> void:
 	var locked_ids = get_meta("locked_ids", [])
@@ -2023,19 +2029,16 @@ func _on_ad_coins() -> void:
 	print("Ad watched: +100 marks")
 
 func _on_buy_bits() -> void:
-	# IAP: $1.99 for 6 Bits (= 1 Sovereign)
-	GameData.add_bits(6)
-	update_currency_display()
-	print("IAP: Bought 6 Bits for $1.99")
+	# IAP: $1.99 for 6 Bits — placeholder until store integration
+	print("IAP: Purchase flow not yet integrated (Bits)")
 
 func _on_buy_sovereigns() -> void:
-	# IAP: $11.99 for 6 Sovereigns
-	GameData.add_sovereigns(6)
-	update_currency_display()
-	print("IAP: Bought 6 Sovereigns for $11.99")
+	# IAP: $11.99 for 6 Sovereigns — placeholder until store integration
+	print("IAP: Purchase flow not yet integrated (Sovereigns)")
 
 func _on_ebon_pass() -> void:
-	print("IAP: Buy Ebon Pass for $6.99/mo")
+	# IAP: Ebon Pass — placeholder until store integration
+	print("IAP: Ebon Pass not yet integrated")
 
 # ============ EXCHANGE MENU ============
 var exchange_marks_input: int = 1
@@ -2112,12 +2115,14 @@ func do_exchange_action() -> void:
 		1:  # Bits → Sovereigns
 			if GameData.exchange_bits_to_sovereigns(1):
 				print("Exchanged 6 Bits → 1 Sovereign")
-		2:  # Sovereigns → Bits (trade down)
+		2:  # Sovereigns → Bits (trade down) — use proper validation
 			if GameData.sovereigns >= 1:
 				GameData.sovereigns -= 1
 				GameData.bits += 6
 				GameData.save_game()
 				print("Exchanged 1 Sovereign → 6 Bits")
+			else:
+				print("Not enough Sovereigns to trade down")
 	
 	update_currency_display()
 	update_exchange_display()

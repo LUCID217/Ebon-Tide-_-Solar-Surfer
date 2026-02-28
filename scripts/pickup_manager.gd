@@ -31,8 +31,8 @@ const KRESH_SHIELD_REGEN_TIME: float = 15.0
 const PASSIVE_MAGNET_BASE_RANGE: float = 6.0
 const PASSIVE_MAGNET_BASE_SPEED: float = 20.0
 
-# Spawning
-var next_spawn_check_z: float = 100.0
+# Spawning — first check after player travels SPAWN_CHECK_DISTANCE meters
+var next_spawn_check_z: float = -80.0
 var is_active: bool = false
 
 # Signals
@@ -101,10 +101,11 @@ func _update_magnet_timer(delta: float) -> void:
 
 func check_spawn_pickup() -> void:
 	var player_z = player.position.z
-	
-	if player_z < next_spawn_check_z:
+
+	# Player moves in negative Z; check fires when player passes the checkpoint
+	if player_z > next_spawn_check_z:
 		return
-	
+
 	next_spawn_check_z -= SPAWN_CHECK_DISTANCE
 	
 	# Random chance to spawn
@@ -424,7 +425,7 @@ func reset() -> void:
 	magnet_active = false
 	magnet_timer = 0.0
 	kresh_shield_regen_timer = 0.0
-	next_spawn_check_z = 100.0
+	next_spawn_check_z = -SPAWN_CHECK_DISTANCE
 	
 	# Remove shield visual if lingering from previous run
 	_remove_shield_visual()

@@ -207,6 +207,8 @@ func _process(delta: float) -> void:
 			base_spacing = LIGHT_SPACING
 		Zone.SUPER_LIGHT:
 			base_spacing = SUPER_SPACING
+		_:
+			base_spacing = LIGHT_SPACING
 	
 	# Apply tier-based spacing multiplier (smooth interpolation)
 	var tier_settings = get_interpolated_settings(player.distance_traveled)
@@ -272,6 +274,8 @@ func check_zone_transition(_delta: float) -> void:
 			zone_length = LIGHT_LENGTH
 		Zone.SUPER_LIGHT:
 			zone_length = SUPER_LIGHT_LENGTH
+		_:
+			zone_length = LIGHT_LENGTH
 	
 	if distance_in_zone >= zone_length:
 		transition_to_next_zone()
@@ -376,6 +380,8 @@ func spawn_obstacle_at_z(z_pos: float) -> void:
 			coin_chance = 0.65
 		Zone.SUPER_LIGHT:
 			coin_chance = 0.85
+		_:
+			coin_chance = 0.65
 	var will_have_coins = randf() < coin_chance
 	
 	# Create obstacle - make it WIDE if coins will arc over it (for visibility)
@@ -905,6 +911,8 @@ func spawn_ground_coins(z_pos: float) -> void:
 			num_coins = randi_range(2, 3)
 		Zone.SUPER_LIGHT:
 			num_coins = randi_range(2, 4)
+		_:
+			num_coins = randi_range(2, 3)
 	
 	if player and player.rider_perk == "lucky":
 		num_coins += 1

@@ -136,9 +136,15 @@ func set_zone(zone: int) -> void:
 func _process(_delta: float) -> void:
 	if player == null or player.is_dead:
 		return
-	
+
 	var player_z = player.position.z
-	
+
+	# Keep floor and rails centered on the player so they never outrun the geometry
+	if floor_body:
+		floor_body.position.z = player_z
+	for rail in rails:
+		rail.position.z = player_z
+
 	for segment in segments:
 		if segment.position.z > player_z + TRACK_SEGMENT_LENGTH:
 			var min_z = 0.0
@@ -150,4 +156,9 @@ func _process(_delta: float) -> void:
 func reset_track() -> void:
 	for i in range(segments.size()):
 		segments[i].position.z = -i * TRACK_SEGMENT_LENGTH
+	# Reset floor and rails back to origin
+	if floor_body:
+		floor_body.position.z = -5000.0
+	for rail in rails:
+		rail.position.z = -5000.0
 	set_zone(Zone.LIGHT)

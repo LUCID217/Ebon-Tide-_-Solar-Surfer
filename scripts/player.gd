@@ -477,6 +477,13 @@ func take_damage() -> void:
 				print("STRIKE 3: You're out!")
 				die()
 
+func _notification(what: int) -> void:
+	# Clear touch state when app loses focus (prevents stuck boost on Android)
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_APPLICATION_PAUSED:
+		is_touching = false
+		is_touch_boosting = false
+		touch_id = -1
+
 func die() -> void:
 	if is_dead:
 		return

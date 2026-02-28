@@ -404,7 +404,7 @@ func show_run_summary() -> void:
 	# GameData.record_run() already tracks best — just read it
 	if Engine.has_singleton("GameData") or get_node_or_null("/root/GameData"):
 		best_distance = GameData.best_distance
-	var is_new_best = current_distance >= best_distance
+	var is_new_best = current_distance > best_distance
 	
 	# Populate summary
 	summary_distance.text = "Distance: " + str(int(current_distance)) + "m"
