@@ -1641,7 +1641,7 @@ func show_main_menu() -> void:
 	title_label.text = "EBON TIDE"
 	update_currency_display()
 	hide_all_items()
-	
+
 	carousel_viewport_container.visible = false  # Hide 3D carousel viewport
 	main_menu_container.visible = true
 	black_market_container.visible = false
@@ -1651,6 +1651,12 @@ func show_main_menu() -> void:
 	back_button.visible = false
 	nav_left_button.visible = false
 	nav_right_button.visible = false
+
+	# Show banner ad on main menu (AdsManager gates on Ebon Pass)
+	var ads_mgr = get_node_or_null("/root/AdsManager")
+	if ads_mgr:
+		ads_mgr.show_banner()
+
 	print("Showing main menu")
 
 func show_crew_select() -> void:
@@ -1786,6 +1792,22 @@ func update_black_market_display() -> void:
 	item_name_label.text = black_market_names[selected_index]
 	item_desc_label.text = black_market_descs[selected_index]
 	action_button.text = black_market_buttons[selected_index]
+
+	# Override Ebon Pass item (index 4) if already active
+	if selected_index == 4:
+		var ebon_pass = get_node_or_null("/root/EbonPass")
+		if ebon_pass and ebon_pass.is_active():
+			item_desc_label.text = "ACTIVE — Sovereign Cache ready!"
+			action_button.text = "COLLECT"
+			var remaining = ebon_pass.get_cache_time_remaining()
+			if remaining > 0:
+				var hours = remaining / 3600
+				var mins = (remaining % 3600) / 60
+				item_desc_label.text = "ACTIVE — Cache in %dh %dm" % [hours, mins]
+				action_button.text = "ACTIVE"
+				action_button.disabled = true
+			else:
+				action_button.disabled = false
 
 func show_carousel_ui() -> void:
 	main_menu_container.visible = false
@@ -1989,6 +2011,10 @@ func _on_back_pressed() -> void:
 	show_main_menu()
 
 func _on_play() -> void:
+	# Hide banner ad before leaving menu — no ads during gameplay
+	var ads_mgr = get_node_or_null("/root/AdsManager")
+	if ads_mgr:
+		ads_mgr.destroy_banner()
 	get_tree().change_scene_to_file("res://scenes/main.tscn")
 
 func _on_crew() -> void:
@@ -2018,6 +2044,20 @@ func _on_free_spin() -> void:
 	print("Won ", reward, " marks!")
 
 func _on_ad_coins() -> void:
+	# Show a rewarded ad for 100 Marks bonus
+	var ads_mgr = get_node_or_null("/root/AdsManager")
+	if ads_mgr and ads_mgr.is_rewarded_ready():
+		# Connect one-shot to grant reward after ad completes
+		if not ads_mgr.rewarded_ad_earned.is_connected(_on_ad_coins_reward):
+			ads_mgr.rewarded_ad_earned.connect(_on_ad_coins_reward, CONNECT_ONE_SHOT)
+		ads_mgr.show_rewarded()
+	else:
+		# Fallback: grant directly if ads unavailable (testing / Ebon Pass)
+		GameData.add_marks(100)
+		update_currency_display()
+		print("Ad unavailable — granted 100 marks directly")
+
+func _on_ad_coins_reward(_currency: String, _amount: int) -> void:
 	GameData.add_marks(100)
 	update_currency_display()
 	print("Ad watched: +100 marks")
@@ -2035,7 +2075,28 @@ func _on_buy_sovereigns() -> void:
 	print("IAP: Bought 6 Sovereigns for $11.99")
 
 func _on_ebon_pass() -> void:
-	print("IAP: Buy Ebon Pass for $6.99/mo")
+	var ebon_pass = get_node_or_null("/root/EbonPass")
+	if ebon_pass:
+		if ebon_pass.is_active():
+			print("[BlackMarket] Ebon Pass already active")
+			# Try to collect Sovereign Cache if ready
+			if ebon_pass.collect_cache():
+				update_currency_display()
+		else:
+			ebon_pass.purchase_completed.connect(
+				func(success: bool):
+					if success:
+						update_currency_display()
+						# Update the Ebon Pass button text to reflect active state
+						update_black_market_display()
+						print("[BlackMarket] Ebon Pass purchase succeeded")
+					else:
+						print("[BlackMarket] Ebon Pass purchase failed"),
+				CONNECT_ONE_SHOT
+			)
+			ebon_pass.purchase()
+	else:
+		print("IAP: EbonPass autoload not found")
 
 # ============ EXCHANGE MENU ============
 var exchange_marks_input: int = 1

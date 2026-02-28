@@ -438,25 +438,43 @@ var death_buttons_container: HBoxContainer
 
 signal restart_requested
 signal menu_requested
+signal rewarded_continue_requested  # Player wants to watch ad to continue run
+signal rewarded_bonus_requested     # Player wants to watch ad for bonus bits
 
 func _create_death_buttons() -> void:
 	# Don't recreate if already built
 	if death_buttons_container and is_instance_valid(death_buttons_container):
 		death_buttons_container.visible = true
+		_update_rewarded_button_visibility()
 		return
-	
+
 	# Hide the old text prompt
 	restart_prompt.text = ""
-	
-	# Container centered below run summary
+
+	# Vertical wrapper for rewarded row + main buttons row
+	var death_ui_wrapper = VBoxContainer.new()
+	death_ui_wrapper.set_anchors_preset(Control.PRESET_CENTER)
+	death_ui_wrapper.position = Vector2(-160, 150)
+	death_ui_wrapper.size = Vector2(320, 130)
+	death_ui_wrapper.alignment = BoxContainer.ALIGNMENT_CENTER
+	death_ui_wrapper.add_theme_constant_override("separation", 12)
+	add_child(death_ui_wrapper)
+
+	# Rewarded ad button (watch ad for bonus bits) — only visible if ads available
+	_rewarded_bonus_btn = Button.new()
+	_rewarded_bonus_btn.text = "📺 WATCH AD → +3 BITS"
+	_rewarded_bonus_btn.custom_minimum_size = Vector2(280, 44)
+	_style_rewarded_button(_rewarded_bonus_btn)
+	_rewarded_bonus_btn.pressed.connect(_on_rewarded_bonus_pressed)
+	death_ui_wrapper.add_child(_rewarded_bonus_btn)
+
+	# Container for main action buttons
 	death_buttons_container = HBoxContainer.new()
-	death_buttons_container.set_anchors_preset(Control.PRESET_CENTER)
-	death_buttons_container.position = Vector2(-160, 180)
 	death_buttons_container.size = Vector2(320, 60)
 	death_buttons_container.alignment = BoxContainer.ALIGNMENT_CENTER
 	death_buttons_container.add_theme_constant_override("separation", 24)
-	add_child(death_buttons_container)
-	
+	death_ui_wrapper.add_child(death_buttons_container)
+
 	# Play Again button
 	play_again_btn = Button.new()
 	play_again_btn.text = "PLAY AGAIN"
@@ -464,7 +482,7 @@ func _create_death_buttons() -> void:
 	_style_death_button(play_again_btn, true)
 	play_again_btn.pressed.connect(_on_play_again_pressed)
 	death_buttons_container.add_child(play_again_btn)
-	
+
 	# Menu button
 	menu_btn = Button.new()
 	menu_btn.text = "MENU"
@@ -472,11 +490,51 @@ func _create_death_buttons() -> void:
 	_style_death_button(menu_btn, false)
 	menu_btn.pressed.connect(_on_menu_pressed)
 	death_buttons_container.add_child(menu_btn)
-	
+
+	_update_rewarded_button_visibility()
+
 	# Fade in
-	death_buttons_container.modulate.a = 0.0
+	death_ui_wrapper.modulate.a = 0.0
 	var tween = create_tween()
-	tween.tween_property(death_buttons_container, "modulate:a", 1.0, 0.3)
+	tween.tween_property(death_ui_wrapper, "modulate:a", 1.0, 0.3)
+
+# Rewarded ad button on death screen
+var _rewarded_bonus_btn: Button
+
+func _style_rewarded_button(btn: Button) -> void:
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.15, 0.4, 0.2)  # Dark green — "free value" feel
+	style.set_corner_radius_all(8)
+	style.set_border_width_all(2)
+	style.border_color = Color(0.3, 0.8, 0.4, 0.4)
+	style.content_margin_left = 12
+	style.content_margin_right = 12
+	style.content_margin_top = 8
+	style.content_margin_bottom = 8
+	btn.add_theme_stylebox_override("normal", style)
+
+	var hover = style.duplicate()
+	hover.bg_color = Color(0.2, 0.5, 0.25)
+	btn.add_theme_stylebox_override("hover", hover)
+	btn.add_theme_stylebox_override("pressed", hover)
+	btn.add_theme_stylebox_override("focus", hover)
+
+	btn.add_theme_color_override("font_color", Color(0.85, 1.0, 0.85))
+	btn.add_theme_font_size_override("font_size", 16)
+
+func _update_rewarded_button_visibility() -> void:
+	if not _rewarded_bonus_btn or not is_instance_valid(_rewarded_bonus_btn):
+		return
+	var ads_mgr = get_node_or_null("/root/AdsManager")
+	# Show only if rewarded ad is loaded and Ebon Pass is not active
+	_rewarded_bonus_btn.visible = ads_mgr != null and ads_mgr.is_rewarded_ready()
+
+func _on_rewarded_bonus_pressed() -> void:
+	emit_signal("rewarded_bonus_requested")
+	# Disable button to prevent double-tap
+	if _rewarded_bonus_btn:
+		_rewarded_bonus_btn.disabled = true
+		_rewarded_bonus_btn.text = "Loading..."
 
 func _style_death_button(btn: Button, is_primary: bool) -> void:
 	# Use UITheme if available, otherwise fall back to inline styles

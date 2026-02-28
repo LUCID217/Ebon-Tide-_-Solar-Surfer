@@ -35,6 +35,10 @@ func _ready() -> void:
 	# Connect death menu touch buttons
 	hud.restart_requested.connect(restart_game)
 	hud.menu_requested.connect(return_to_menu)
+
+	# Connect rewarded ad button on death screen
+	if hud.has_signal("rewarded_bonus_requested"):
+		hud.rewarded_bonus_requested.connect(_on_rewarded_bonus)
 	
 	obstacle_spawner.set_player(player)
 	obstacle_spawner.set_hud(hud)
@@ -199,6 +203,11 @@ func _on_player_died() -> void:
 	if Engine.has_singleton("GameData") or get_node_or_null("/root/GameData"):
 		GameData.record_run(player.distance_traveled, player.coins_collected)
 
+	# Trigger interstitial ad every N deaths (AdsManager handles the count)
+	var ads_mgr = get_node_or_null("/root/AdsManager")
+	if ads_mgr:
+		ads_mgr.on_player_death()
+
 func _on_charge_changed(value: float) -> void:
 	hud.update_charge(value)
 
@@ -256,6 +265,19 @@ func restart_game() -> void:
 	
 	update_camera_instant()
 	hud.hide_death_ui()
+
+func _on_rewarded_bonus() -> void:
+	var ads_mgr = get_node_or_null("/root/AdsManager")
+	if ads_mgr and ads_mgr.is_rewarded_ready():
+		ads_mgr.rewarded_ad_earned.connect(
+			func(_currency: String, _amount: int):
+				GameData.add_bits(3)
+				print("[GameManager] Rewarded bonus: +3 Bits"),
+			CONNECT_ONE_SHOT
+		)
+		ads_mgr.show_rewarded()
+	else:
+		print("[GameManager] Rewarded ad not ready")
 
 func return_to_menu() -> void:
 	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")

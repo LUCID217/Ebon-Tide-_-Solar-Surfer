@@ -42,6 +42,10 @@ var haptic_feedback: bool = true
 var graphics_quality: int = 1  # 0=Low, 1=Medium, 2=High
 var last_track_index: int = -1  # Persists music rotation across sessions
 
+# Ebon Pass state (persisted across sessions)
+var ebon_pass_active: bool = false
+var last_cache_claim_time: int = 0  # Unix timestamp of last Sovereign Cache collection
+
 # ============ RIDER DATA ============
 # Cursed crew members of the Ebon Tide universe
 # Prices in Sovereigns (doubling pattern: 3, 6, 12, 24, 48)
@@ -357,7 +361,9 @@ func save_game() -> void:
 		"screen_shake": screen_shake,
 		"haptic_feedback": haptic_feedback,
 		"graphics_quality": graphics_quality,
-		"last_track_index": last_track_index
+		"last_track_index": last_track_index,
+		"ebon_pass_active": ebon_pass_active,
+		"last_cache_claim_time": last_cache_claim_time
 	}
 	
 	var file = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -396,6 +402,8 @@ func load_game() -> void:
 			haptic_feedback = save_data.get("haptic_feedback", true)
 			graphics_quality = save_data.get("graphics_quality", 1)
 			last_track_index = save_data.get("last_track_index", -1)
+			ebon_pass_active = save_data.get("ebon_pass_active", false)
+			last_cache_claim_time = save_data.get("last_cache_claim_time", 0)
 			print("Game loaded!")
 
 # ============ CURRENCY ============
