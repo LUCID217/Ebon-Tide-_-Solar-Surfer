@@ -22,6 +22,22 @@ input, layout, and performance are tuned for a phone WebView.
 
 ---
 
+## 0. Local browser preview
+
+Don't rely on double-clicking `index.html`: over `file://` some browsers
+restrict localStorage and script behavior, and Capacitor-related imports
+can throw before the ad layer's no-op fallback gets a chance to run.
+Serve it over http instead:
+
+```bash
+python3 -m http.server 8000 --directory www
+```
+
+then open http://localhost:8000. In this mode every AdMob call no-ops
+and logs to the console (expected — there's no native plugin), while the
+core game, unlocks, missions, rebirth, and localStorage persistence all
+behave exactly as they will inside the Android WebView.
+
 ## 1. Android build — exact steps
 
 ### 1.1 Prerequisites (once)
