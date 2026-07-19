@@ -1,0 +1,84 @@
+<!--
+  ===========================================================================
+  ORBIT RUSH — AndroidManifest.xml ADDITIONS
+  ===========================================================================
+  After running `npx cap add android`, the native project lives in
+  android/. Merge the entries below into:
+
+      android/app/src/main/AndroidManifest.xml
+
+  Everything here is REQUIRED unless marked optional.
+  ===========================================================================
+-->
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     1. INSIDE the <application> ... </application> element
+     ═══════════════════════════════════════════════════════════════════════
+
+     CRITICAL: The AdMob Application ID <meta-data> tag. Google Mobile Ads
+     CRASHES THE APP ON LAUNCH if this tag is missing or malformed
+     (java.lang.IllegalStateException: "Invalid application ID").
+
+     The value below is Google's OFFICIAL TEST App ID — safe to ship to
+     internal testing, never to production.
+-->
+<meta-data
+    android:name="com.google.android.gms.ads.APPLICATION_ID"
+    android:value="ca-app-pub-3940256099942544~3347511713"/>
+    <!-- TODO: replace before release with YOUR AdMob App ID
+         (format: ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY).
+         Must match ADMOB_APP_ID in www/index.html and
+         plugins.AdMob.appId in capacitor.config.json. -->
+
+<!-- Optional but recommended: prevents a crash on some devices when
+     WebView is updated while the app runs. -->
+<meta-data
+    android:name="com.google.android.gms.ads.flag.OPTIMIZE_INITIALIZATION"
+    android:value="true"/>
+<meta-data
+    android:name="com.google.android.gms.ads.flag.OPTIMIZE_AD_LOADING"
+    android:value="true"/>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     2. OUTSIDE <application>, alongside the existing <uses-permission>
+        entries (top level of <manifest>)
+     ═══════════════════════════════════════════════════════════════════════ -->
+
+<!-- Already present in the Capacitor template, keep it: -->
+<uses-permission android:name="android.permission.INTERNET"/>
+
+<!-- Haptics (@capacitor/haptics). -->
+<uses-permission android:name="android.permission.VIBRATE"/>
+
+<!-- Keep-awake during play (@capacitor-community/keep-awake). -->
+<uses-permission android:name="android.permission.WAKE_LOCK"/>
+
+<!-- Advertising ID (Android 13+). play-services-ads merges this in
+     automatically, but declare it explicitly so the Play Console
+     Data-Safety review matches your form answers. If you ever ship a
+     no-ads build, replace with:
+     <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove"/>
+-->
+<uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     3. ON the <activity> element for MainActivity (attribute additions)
+     ═══════════════════════════════════════════════════════════════════════
+
+     Lock portrait and keep the WebView alive across config changes
+     (resizing/dark-mode/keyboard) so mid-run state is never destroyed:
+
+     android:screenOrientation="portrait"
+     android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode"
+-->
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     4. android/variables.gradle — SDK levels (not manifest, but required)
+     ═══════════════════════════════════════════════════════════════════════
+
+     ext {
+         minSdkVersion = 23
+         compileSdkVersion = 36   // Android 16
+         targetSdkVersion = 36    // Android 16 — Play requires 36+ after Aug 31 2026
+     }
+-->

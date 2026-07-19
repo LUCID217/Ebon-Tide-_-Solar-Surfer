@@ -1,0 +1,17 @@
+{
+  "appId": "com.example.orbitrush",
+  "appName": "Orbit Rush",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#0b0d1a",
+    "buildOptions": {
+      "releaseType": "AAB"
+    }
+  },
+  "plugins": {
+    "AdMob": {
+      "appId": "ca-app-pub-3940256099942544~3347511713"
+    }
+  }
+}
