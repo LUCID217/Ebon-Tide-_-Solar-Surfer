@@ -1304,6 +1304,14 @@ const UI={
     Ads.onGameOver();       // maybe-interstitial (every Nth death, throttled)
   },
 
+  /* re-sync the game-over screen's level/XP bar (after rewarded 2× XP) */
+  gameOverXPRefresh(){
+    $("o-level").textContent=S.level;
+    const need=xpForLevel(S.level);
+    $("o-xptext").textContent=`${S.xpInLevel} / ${need} XP`;
+    $("o-xpfill").style.width=`${clamp(S.xpInLevel/need*100,0,100)}%`;
+  },
+
   toast(txt,big=false){
     const div=document.createElement("div");
     div.className="toast"+(big?" big":"");
@@ -1350,17 +1358,146 @@ const UI={
 };
 
 /* ═══════════════════════════════════════════════════════════════════════
-   ADS — stub (replaced by the full AdMob + UMP layer in stage 3).
-   Interface used by the game: init, onGameOver, rewardedReady,
-   rewardDoubleXP, rewardContinue, showPrivacyOptions.
+   ADS — AdMob via @capacitor-community/admob + Google UMP consent.
+
+   Wired but inert outside the native app: every entry point feature-
+   detects the plugin and no-ops with a console log, so browser dev
+   never crashes and never even touches ad code paths.
+
+   Placement policy:
+   · Banner       → anchored bottom, shown once at app start; its height
+                    is fed into --banner-h so no UI sits behind it.
+   · Interstitial → on game-over, only every Nth death
+                    (CONFIG.ADS_INTERSTITIAL_EVERY_N_DEATHS) AND at most
+                    once per ADS_INTERSTITIAL_MIN_INTERVAL_S seconds.
+   · Rewarded     → user-initiated only: "2× XP" and "CONTINUE" buttons
+                    on the game-over screen.
+   · UMP consent  → requested BEFORE initialize/ads, per Google policy;
+                    "Privacy & ad options" button re-shows the form.
    ═══════════════════════════════════════════════════════════════════════ */
 const Ads={
-  init(){ console.log("[ads] stub init (no-op)"); },
-  rewardedReady(){ return false; },
-  onGameOver(){},
-  rewardDoubleXP(){},
-  rewardContinue(){},
-  showPrivacyOptions(){ alert("Ad privacy options appear here in the Android build."); },
+  interstitialLoaded:false, rewardedLoaded:false,
+  lastInterstitialAt:0, pendingReward:null, doubleXPUsed:false,
+
+  plugin(){ return (CONFIG.ADS_ENABLED && window.Capacitor?.isNativePlatform?.() && window.Capacitor?.Plugins?.AdMob) || null; },
+
+  async init(){
+    const AdMob=this.plugin();
+    if(!AdMob){ console.log("[ads] AdMob plugin not available — ads disabled (browser/dev mode)"); return; }
+    try{
+      /* ── 1. UMP consent flow (GDPR/UK/US-state). Must complete before
+             ads are requested. Inert outside consent regions. ───────── */
+      try{
+        const info=await AdMob.requestConsentInfo({});
+        if(info?.isConsentFormAvailable && info?.status==="REQUIRED"){
+          await AdMob.showConsentForm();
+        }
+        S.consentDone=true; save();
+      }catch(e){ console.warn("[ads] consent flow failed (continuing)",e); }
+
+      /* ── 2. SDK init. ADS_TESTING_MODE requests test ads everywhere. ── */
+      await AdMob.initialize({ initializeForTesting: CONFIG.ADS_TESTING_MODE });
+
+      /* ── 3. Event listeners (loaded/dismissed/reward) ────────────── */
+      AdMob.addListener("bannerAdSizeChanged",(size)=>{
+        // reserve layout space so the banner never covers game UI
+        const h=clamp(Math.round(size?.height||0),0,140);
+        document.documentElement.style.setProperty("--banner-h",h+"px");
+        Game.resize();
+      });
+      AdMob.addListener("onInterstitialAdLoaded",()=>{ this.interstitialLoaded=true; });
+      AdMob.addListener("onInterstitialAdDismissed",()=>{ this.interstitialLoaded=false; this.prepInterstitial(); });
+      AdMob.addListener("onRewardedVideoAdLoaded",()=>{ this.rewardedLoaded=true; });
+      AdMob.addListener("onRewardedVideoAdReward",()=>{ this.grantPendingReward(); });
+      AdMob.addListener("onRewardedVideoAdDismissed",()=>{ this.rewardedLoaded=false; this.pendingReward=null; this.prepRewarded(); });
+
+      /* ── 4. Banner up immediately, full-screen formats pre-loaded. ── */
+      await AdMob.showBanner({
+        adId: CONFIG.BANNER_AD_UNIT_ID,
+        adSize: "ADAPTIVE_BANNER",
+        position: "BOTTOM_CENTER",
+        margin: 0,
+        isTesting: CONFIG.ADS_TESTING_MODE,
+      });
+      this.prepInterstitial();
+      this.prepRewarded();
+      console.log("[ads] initialized");
+    }catch(e){ console.warn("[ads] init failed — continuing without ads",e); }
+  },
+
+  async prepInterstitial(){
+    const AdMob=this.plugin(); if(!AdMob) return;
+    try{ await AdMob.prepareInterstitial({ adId: CONFIG.INTERSTITIAL_AD_UNIT_ID, isTesting: CONFIG.ADS_TESTING_MODE }); }
+    catch(e){ console.warn("[ads] interstitial prepare failed",e); }
+  },
+  async prepRewarded(){
+    const AdMob=this.plugin(); if(!AdMob) return;
+    try{ await AdMob.prepareRewardVideoAd({ adId: CONFIG.REWARDED_AD_UNIT_ID, isTesting: CONFIG.ADS_TESTING_MODE }); }
+    catch(e){ console.warn("[ads] rewarded prepare failed",e); }
+  },
+
+  rewardedReady(){ return this.rewardedLoaded; },
+
+  /* game-over hook: throttled interstitial cadence */
+  async onGameOver(){
+    this.doubleXPUsed=false;
+    const AdMob=this.plugin();
+    if(!AdMob){ console.log("[ads] (no-op) interstitial check, death #"+S.deaths); return; }
+    const everyN=CONFIG.ADS_INTERSTITIAL_EVERY_N_DEATHS;
+    const cooled=(Date.now()-this.lastInterstitialAt)/1000>=CONFIG.ADS_INTERSTITIAL_MIN_INTERVAL_S;
+    if(this.interstitialLoaded && cooled && S.deaths%everyN===0){
+      try{
+        Audio2.suspend();               // never play game audio under an ad
+        await AdMob.showInterstitial();
+        this.lastInterstitialAt=Date.now();
+      }catch(e){ console.warn("[ads] interstitial show failed",e); this.prepInterstitial(); }
+    }
+  },
+
+  async showRewarded(kind){
+    const AdMob=this.plugin();
+    if(!AdMob){ console.log("[ads] (no-op) rewarded requested:",kind); return; }
+    if(!this.rewardedLoaded) return;
+    this.pendingReward=kind;
+    try{ Audio2.suspend(); await AdMob.showRewardVideoAd(); }
+    catch(e){ console.warn("[ads] rewarded show failed",e); this.pendingReward=null; this.prepRewarded(); }
+  },
+  rewardDoubleXP(){
+    if(this.doubleXPUsed) return;
+    this.showRewarded("doublexp");
+  },
+  rewardContinue(){
+    if(Game.revived) return;
+    this.showRewarded("continue");
+  },
+  /* fires only on the SDK's reward event → user finished the ad */
+  grantPendingReward(){
+    const kind=this.pendingReward; this.pendingReward=null;
+    if(kind==="doublexp"){
+      this.doubleXPUsed=true;
+      const extra=Math.round(Game.runXPGained*(CONFIG.REWARDED_DOUBLE_XP_MULT-1));
+      Progress.gainXP(extra,true);      // raw: multipliers already applied
+      Game.runXPGained+=extra;
+      $("o-xp").textContent=`+${Game.runXPGained} XP  (${CONFIG.REWARDED_DOUBLE_XP_MULT}× rewarded!)`;
+      $("btn-doublexp").disabled=true;
+      UI.toast(`🎁 +${extra} bonus XP!`,true);
+      UI.gameOverXPRefresh?.();
+    }else if(kind==="continue"){
+      UI.toast("🎁 RUN CONTINUES!",true);
+      Game.revive();
+    }
+  },
+
+  /* "Privacy & ad options" — re-show the UMP form so users can change
+     consent any time (required by Google in consent regions). */
+  async showPrivacyOptions(){
+    const AdMob=this.plugin();
+    if(!AdMob){ alert("Ad privacy options appear here in the Android build."); return; }
+    try{
+      if(typeof AdMob.showPrivacyOptionsForm==="function") await AdMob.showPrivacyOptionsForm();
+      else await AdMob.showConsentForm();
+    }catch(e){ console.warn("[ads] privacy form unavailable",e); }
+  },
 };
 
 /* ═══════════════════════════════════════════════════════════════════════
