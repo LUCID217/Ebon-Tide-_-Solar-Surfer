@@ -114,6 +114,10 @@ button:disabled{opacity:.35; animation:none}
 .cell.eq{border-color:var(--accent);box-shadow:0 0 12px #5ef2c866}
 .cell.lock{opacity:.42}
 .cell .cost{position:absolute;bottom:3px;left:0;right:0;font-size:9px;color:#fff;text-shadow:0 1px 2px #000}
+.cell .badge{position:absolute;top:-6px;right:-6px;background:var(--accent2);color:#fff;
+  font-size:8px;font-weight:900;padding:2px 5px;border-radius:8px;letter-spacing:.05em;
+  animation:pulseBtn 1.2s infinite}
+#shop-dot{color:var(--accent2);font-size:22px;line-height:0;vertical-align:middle;margin-left:4px}
 
 /* Toast banners (level-up, unlock, streak, milestone) */
 #toasts{position:absolute;top:calc(var(--sat) + 54px);left:0;right:0;z-index:30;
@@ -161,13 +165,14 @@ button:disabled{opacity:.35; animation:none}
   <h1 class="logo">ORBIT RUSH</h1>
   <div class="tag">tap to release · land in the next ring</div>
   <div class="statline">BEST <b id="s-best">0</b> · STREAK <b id="s-streak">0</b>🔥 · <b id="s-rebirth"></b></div>
+  <div class="statline">🪙 <b id="s-coins">0</b> coins</div>
   <div class="xpwrap">
     <div class="xplabel"><span>LVL <b id="s-level">1</b></span><span id="s-xptext">0 / 100 XP</span></div>
     <div class="xpbar"><i id="s-xpfill"></i></div>
   </div>
   <button class="primary" id="btn-play">PLAY</button>
   <div class="row">
-    <button class="ghostbtn" id="btn-unlocks">🎨 Unlocks</button>
+    <button class="ghostbtn" id="btn-unlocks">🛒 Shop<span id="shop-dot" class="hidden">•</span></button>
     <button class="ghostbtn" id="btn-sound">🔊</button>
     <button class="ghostbtn" id="btn-fx">✨ FX: HI</button>
   </div>
@@ -183,12 +188,14 @@ button:disabled{opacity:.35; animation:none}
   <div class="statline" id="o-miss"></div>
   <div class="ghost"><span>best <b id="o-bestn">0</b></span><i class="you" id="o-you"></i><i class="mark" id="o-mark"></i></div>
   <div class="statline" id="o-xp"></div>
+  <div class="statline" id="o-coins"></div>
   <div class="xpwrap">
     <div class="xplabel"><span>LVL <b id="o-level">1</b></span><span id="o-xptext"></span></div>
     <div class="xpbar"><i id="o-xpfill"></i></div>
   </div>
   <div class="row">
     <button class="ad" id="btn-continue">▶ CONTINUE<br><small>watch ad · once</small></button>
+    <button class="ad" id="btn-coinrevive">▶ CONTINUE<br><small>🪙 <span id="o-revcost">60</span></small></button>
     <button class="ad" id="btn-doublexp">2× XP<br><small>watch ad</small></button>
   </div>
   <button class="primary" id="btn-retry">RETRY</button>
@@ -205,17 +212,19 @@ button:disabled{opacity:.35; animation:none}
   </div>
 </div>
 
-<!-- ── UNLOCKS SCREEN ───────────────────────────────────────────────── -->
+<!-- ── SHOP SCREEN ──────────────────────────────────────────────────── -->
 <div class="screen hidden" id="unlocks">
-  <h1 class="logo" style="font-size:30px">UNLOCKS</h1>
-  <div class="statline">lifetime XP <b id="u-xp">0</b></div>
+  <h1 class="logo" style="font-size:30px">SHOP</h1>
+  <div class="statline">🪙 <b id="u-coins">0</b> · lifetime XP <b id="u-xp">0</b></div>
   <div class="tabs">
-    <button data-tab="trail" class="on">Trails</button>
+    <button data-tab="trail" class="on">Colors</button>
     <button data-tab="skin">Skins</button>
     <button data-tab="bg">Worlds</button>
+    <button data-tab="sound">Sound</button>
+    <button data-tab="fx">FX</button>
   </div>
   <div class="grid" id="u-grid"></div>
-  <div class="dimtxt">Earn XP to unlock. Past the classics, new styles are generated forever.</div>
+  <div class="dimtxt">XP unlocks a tier · coins buy it. Tap an owned item to equip (sound &amp; FX preview on tap). New styles generate forever.</div>
   <button class="ghostbtn" id="btn-u-back">Back</button>
 </div>
 
@@ -286,6 +295,23 @@ const CONFIG = {
   NEAR_MISS_SHOW_PX: 30,        // show "missed by N px" up to this ★ knob
   DEATH_SLOWMO_S: 0.45,         // brief flight after a miss before game over
 
+  /* ── COINS / SHOP ─────────────────────────────────────────────────── */
+  COINS_PER_SCORE: 1,           // coins per score point at run end ★ tune this first
+  COINS_COMBO_BONUS: 2,         // extra coins per PERFECT hit landed
+  COIN_PRICE_BASE: 90,          // tier-1 shop item price
+  COIN_PRICE_EXPONENT: 1.35,    // price of tier i = BASE · i^EXP (endless tiers)
+
+  /* ── COIN REVIVE (no lives meter — restart is always free/instant).
+        Price escalates per use WITHIN one run so it can't be spammed. ── */
+  REVIVE_COIN_BASE: 60,         // first coin-revive of a run
+  REVIVE_COIN_GROWTH: 3,        // ×3 for each additional revive in the same run
+
+  /* ── RELEASE INDICATOR — long for onboarding, shrinks smoothly with
+        level to a floor. Independent of TARGET_R_MIN by design. ─────── */
+  INDICATOR_LEN_BASE: 44,       // tangent aim-line length at level 1
+  INDICATOR_LEN_MIN: 14,        // floor — never fully disappears
+  INDICATOR_SHRINK: 3.5,        // shrink ·√(level−1) between BASE and MIN
+
   /* ── PERFORMANCE / FX ─────────────────────────────────────────────── */
   DPR_CAP: 2,                   // cap devicePixelRatio for cheap GPUs
   PARTICLE_POOL: 160,           // fixed pool, zero per-frame allocation
@@ -329,17 +355,29 @@ const DEFAULT_SAVE={
   streak:0, lastDay:"",        // daily streak
   missions:[],                 // active missions (see Missions)
   missionSeed:1,               // monotonically increasing mission generator seed
-  equip:{trail:0,skin:0,bg:0},
+  coins:0,                     // spendable currency (earned per run)
+  /* item 0 of every category is free & pre-owned */
+  owned:{trail:[0],skin:[0],bg:[0],sound:[0],fx:[0]},
+  equip:{trail:0,skin:0,bg:0,sound:0,fx:0},
+  shopSeen:{trail:1,skin:1,bg:1,sound:1,fx:1}, // per-category count seen → NEW badges
   muted:false, lowFX:false,
   consentDone:false,
 };
+const SHOP_CATS=["trail","skin","bg","sound","fx"];
 let S=loadSave();
 function loadSave(){
   try{
     const raw=localStorage.getItem(CONFIG.SAVE_KEY);
     if(!raw) return structuredClone(DEFAULT_SAVE);
     // Merge over defaults so adding fields in updates never breaks old saves.
-    return Object.assign(structuredClone(DEFAULT_SAVE), JSON.parse(raw));
+    const s=Object.assign(structuredClone(DEFAULT_SAVE), JSON.parse(raw));
+    // nested objects need their own merge (a shallow assign would drop
+    // newly added categories like sound/fx from pre-shop saves)
+    for(const k of ["owned","equip","shopSeen"])
+      s[k]=Object.assign(structuredClone(DEFAULT_SAVE[k]), s[k]||{});
+    // never leave an un-owned item equipped
+    for(const c of SHOP_CATS) if(!s.owned[c].includes(s.equip[c])) s.equip[c]=0;
+    return s;
   }catch(e){ console.warn("[save] corrupt, resetting", e); return structuredClone(DEFAULT_SAVE); }
 }
 let saveQueued=false;
@@ -404,18 +442,26 @@ const Audio2={
     src.connect(f); f.connect(g); g.connect(this.master);
     src.start(t);
   },
-  /* landed in a ring — weighty "thunk" */
-  thunk(){ this.noise(0.08,0.5,900); this.blip(150,60,0.12,"sine",0.5); },
-  /* PERFECT — pluck that climbs a pentatonic scale with the combo:
+  /* equipped sound pack (see soundItem) drives the pluck/thunk voice */
+  pack(){ return soundItem(S.equip.sound); },
+  /* landed in a ring — weighty "thunk", pitched by the pack */
+  thunk(){
+    const p=this.pack();
+    this.noise(0.08,0.5,900);
+    this.blip(150*(p.base/523),60,0.12,"sine",0.5);
+  },
+  /* PERFECT — pluck that climbs the pack's scale with the combo:
      the escalating-audio dopamine ramp. */
-  perfect(combo){
-    const steps=[0,3,5,7,10,12,15,17];             // minor-pentatonic-ish
-    const st=steps[Math.min(combo-1,steps.length-1)];
-    const f=523*Math.pow(2,st/12);
-    this.blip(f,f,0.16,"triangle",0.5);
+  perfect(combo,packOverride){
+    const p=packOverride||this.pack();
+    const st=p.scale[Math.min(combo-1,p.scale.length-1)];
+    const f=p.base*Math.pow(2,st/12);
+    this.blip(f,f,0.16,p.wave,0.5);
     this.blip(f*2,f*2,0.10,"sine",0.22,0.02);      // sparkle octave
     if(combo>=3) this.blip(f*1.5,f*1.5,0.12,"sine",0.18,0.05);
   },
+  /* shop preview: a short 3-note run in pack i's voice */
+  preview(i){ const p=soundItem(i); this.perfect(1,p); setTimeout(()=>this.perfect(2,p),100); setTimeout(()=>this.perfect(3,p),200); },
   miss(){ this.blip(300,55,0.4,"sawtooth",0.35); this.noise(0.25,0.3,500,0.05); },
   levelup(){ [0,4,7,12].forEach((st,i)=>this.blip(440*Math.pow(2,st/12),440*Math.pow(2,st/12),0.18,"triangle",0.4,i*0.07)); },
   unlock(){ [0,5,9,12,16].forEach((st,i)=>this.blip(523*Math.pow(2,st/12),523*Math.pow(2,st/12),0.15,"square",0.15,i*0.06)); },
@@ -488,8 +534,41 @@ function bgItem(i){
   const h=procHue(i+17);
   return {name:procName(i+99), top:`hsl(${h} 45% 7%)`, bot:`hsl(${(h+40)%360} 55% 18%)`};
 }
+/* ── sound packs: swap the pluck/thunk voice. Hand-authored, then
+      procedural (wave/base/scale derived from the index) forever. ───── */
+const HAND_SOUNDS=[
+  {name:"Classic", wave:"triangle", base:523, scale:[0,3,5,7,10,12,15,17]},   // minor pentatonic
+  {name:"8-Bit",   wave:"square",   base:440, scale:[0,4,7,12,16,19,24,28]},  // major arps
+  {name:"Laser",   wave:"sawtooth", base:392, scale:[0,2,7,9,14,16,21,23]},   // sus2 stacks
+  {name:"Glass",   wave:"sine",     base:784, scale:[0,4,6,11,12,16,18,23]},  // lydian shimmer
+];
+const WAVES=["triangle","square","sawtooth","sine"];
+function soundItem(i){
+  if(i<HAND_SOUNDS.length) return HAND_SOUNDS[i];
+  return {name:procName(i+201), wave:WAVES[i%WAVES.length],
+    base:Math.round(330*Math.pow(2,hash01(i*11+4)*1.2)),
+    scale:HAND_SOUNDS[Math.floor(hash01(i*5+9)*HAND_SOUNDS.length)].scale};
+}
+/* ── FX packs: perfect-hit explosion variants (see Particles.perfectFX).
+      Hand-authored styles, then procedural style+hue recombinations. ── */
+const HAND_FX=[
+  {name:"Shatter",  style:"shatter"},
+  {name:"Nova",     style:"nova"},
+  {name:"Implode",  style:"implode"},
+  {name:"Confetti", style:"confetti"},
+  {name:"Quake",    style:"quake"},
+];
+function fxItem(i){
+  if(i<HAND_FX.length) return HAND_FX[i];
+  return {name:procName(i+301), style:HAND_FX[i%HAND_FX.length].style, hue:procHue(i+23)};
+}
+const CAT_ITEM={trail:trailItem,skin:skinItem,bg:bgItem,sound:soundItem,fx:fxItem};
+
 /* Lifetime-XP threshold of the i-th unlock in any category (i=0 free). */
 function unlockCost(i){ return i===0?0:Math.round(CONFIG.UNLOCK_BASE*Math.pow(i,CONFIG.UNLOCK_EXPONENT)); }
+/* Coin price of the i-th shop item — tier-scaled, endless. XP makes an
+   item AVAILABLE (unlockCost), coins BUY it (hybrid model). */
+function coinPrice(i){ return i===0?0:Math.round(CONFIG.COIN_PRICE_BASE*Math.pow(i,CONFIG.COIN_PRICE_EXPONENT)/5)*5; }
 function unlockedCount(){ // how many items per category current lifetime XP grants
   let i=0; while(unlockCost(i+1)<=S.lifetimeXP && i<9999) i++;
   return i+1;
@@ -499,7 +578,7 @@ function checkNewUnlocks(prevLifetime){
   let iPrev=0; while(unlockCost(iPrev+1)<=prevLifetime) iPrev++;
   let iNow=0;  while(unlockCost(iNow+1)<=S.lifetimeXP)  iNow++;
   for(let i=iPrev+1;i<=iNow;i++){
-    UI.toast(`✦ NEW UNLOCK — ${trailItem(i).name} trail + more!`, true);
+    UI.toast(`✦ NEW IN SHOP — ${trailItem(i).name} tier available!`, true);
     Audio2.unlock(); Haptics.perfect();
   }
 }
@@ -596,6 +675,40 @@ const Particles={
       this.spawn(1,x+Math.cos(a)*r,y+Math.sin(a)*r,
         Math.cos(a)*rand(60,160),Math.sin(a)*rand(60,160),
         rand(0.4,0.8),3,color,r*0.35,TAU/frags*0.8);
+    }
+  },
+  /* perfect-hit effect, dispatched by the equipped FX pack (shop item).
+     All variants reuse the same pool — no new allocation paths. */
+  perfectFX(x,y,r,color,fxOverride){
+    const fx=fxOverride??fxItem(S.equip.fx);
+    const c=fx.hue!==undefined?`hsl(${fx.hue} 90% 65%)`:color;
+    switch(fx.style){
+      case "nova":       // two concentric spark waves
+        for(let i=0;i<(Game.lowFX()?8:14);i++){
+          const a=i/14*TAU;
+          this.spawn(0,x,y,Math.cos(a)*220,Math.sin(a)*220,0.5,3,c);
+          this.spawn(0,x,y,Math.cos(a+0.2)*120,Math.sin(a+0.2)*120,0.7,2,"#ffffff");
+        }
+        break;
+      case "implode":    // sparks collapse into the ring center
+        for(let i=0;i<(Game.lowFX()?8:14);i++){
+          const a=rand(0,TAU), d=r*rand(1.6,2.4);
+          this.spawn(0,x+Math.cos(a)*d,y+Math.sin(a)*d,-Math.cos(a)*d*2.2,-Math.sin(a)*d*2.2,0.45,2.5,c);
+        }
+        break;
+      case "confetti":   // multicolor scatter
+        for(let i=0;i<(Game.lowFX()?9:16);i++){
+          const a=rand(0,TAU), s=rand(70,240);
+          this.spawn(0,x,y,Math.cos(a)*s,Math.sin(a)*s,rand(0.4,0.8),rand(2,4),`hsl(${rand(0,360)} 90% 65%)`);
+        }
+        break;
+      case "quake":      // shatter + heavy shake + white flash sparks
+        this.shatter(x,y,r,c);
+        this.burst(x,y,"#ffffff",10,260);
+        Game.fx.shake=Math.max(Game.fx.shake,0.9);
+        break;
+      default:           // "shatter" — the classic
+        this.shatter(x,y,r,c);
     }
   },
   update(dt){
@@ -709,7 +822,8 @@ const Game={
   time:0, lastT:0, running:false,
 
   // run state
-  score:0, combo:1, perfectRow:0, revived:false,
+  score:0, combo:1, perfectRow:0, revived:false,  // revived = ad-continue used
+  coinRevives:0, runPerfects:0,
   runXPGained:0, missMargin:null, flipsSeen:0,
 
   cur:null, next:null, prevRing:null,  // ring objects
@@ -791,6 +905,7 @@ const Game={
   startRun(){
     this.state="playing";
     this.score=0; this.combo=1; this.perfectRow=0; this.revived=false;
+    this.coinRevives=0; this.runPerfects=0;
     this.runXPGained=0; this.missMargin=null;
     this.cur=this.makeRing(this.vw/2, 0, CONFIG.TARGET_R_BASE, 0);
     this.camY=this.cur.y-this.vh*0.62;
@@ -824,10 +939,10 @@ const Game={
     let points;
     if(perfect){
       this.combo=Math.min(this.combo+1,CONFIG.COMBO_MAX);
-      this.perfectRow++;
+      this.perfectRow++; this.runPerfects++;
       points=this.combo;
       Audio2.perfect(this.combo); Haptics.perfect();
-      Particles.shatter(ring.x,ring.y,ring.r,UI.trailColor());
+      Particles.perfectFX(ring.x,ring.y,ring.r,UI.trailColor());
       this.fx.shake=Math.max(this.fx.shake,0.5+this.combo*0.06);
       this.float(ring.x,ring.y-ring.r-16,`PERFECT ×${this.combo}`,UI.trailColor(),20);
     }else{
@@ -888,9 +1003,27 @@ const Game={
     this.fx.shake=1;
     Particles.burst(this.dot.x,this.dot.y,"#ff5e8a",22,240);
   },
-  /* rewarded-ad revive: back in orbit around the launch ring, score kept */
-  revive(){
-    this.revived=true;
+  /* price of the NEXT coin revive this run — escalates so it can't be
+     spammed; resets every run. */
+  nextRevivePrice(){
+    return Math.round(CONFIG.REVIVE_COIN_BASE*Math.pow(CONFIG.REVIVE_COIN_GROWTH,this.coinRevives));
+  },
+  /* coin-revive path: same continue as the rewarded ad, paid in coins.
+     Resolves the revive gate → a pending interstitial is cancelled. */
+  coinRevive(){
+    if(this.state!=="over") return;
+    const price=this.nextRevivePrice();
+    if(S.coins<price) return;
+    S.coins-=price; this.coinRevives++; save();
+    Ads.interstitialPending=false;      // revive taken — interstitial loses
+    UI.toast(`🪙 −${price} — RUN CONTINUES!`,true);
+    Audio2.unlock(); Haptics.perfect();
+    this.revive();
+  },
+  /* revive core (rewarded ad or coins): back in orbit around the launch
+     ring, score kept. `revived` flags only the once-per-run AD continue. */
+  revive(fromAd){
+    if(fromAd) this.revived=true;
     const d=this.dot, ring=this.cur;
     d.mode="orbit";
     d.angle=rand(0,TAU); d.orbR=d.orbRT=ring.r+CONFIG.ORBIT_GAP;
@@ -1075,13 +1208,17 @@ Game.render=function(){
       ctx.globalAlpha=1;
     }
 
-    // aim hint while orbiting: short tangent tick showing launch direction
+    // aim hint while orbiting: tangent line showing launch direction.
+    // Long at level 1 for onboarding, shrinks smoothly with level to a
+    // floor (INDICATOR_LEN_BASE/MIN — independent of TARGET_R_MIN).
     if(d.mode==="orbit"){
+      const len=clamp(CONFIG.INDICATOR_LEN_BASE-CONFIG.INDICATOR_SHRINK*Math.sqrt(Math.max(S.level-1,0)),
+        CONFIG.INDICATOR_LEN_MIN,CONFIG.INDICATOR_LEN_BASE);
       const tx=-Math.sin(d.angle)*d.dir, ty=Math.cos(d.angle)*d.dir;
       ctx.strokeStyle="#ffffff"; ctx.globalAlpha=0.35; ctx.lineWidth=2;
       ctx.beginPath();
       ctx.moveTo(d.x+tx*14,d.y-cam+ty*14);
-      ctx.lineTo(d.x+tx*34,d.y-cam+ty*34);
+      ctx.lineTo(d.x+tx*(14+len),d.y-cam+ty*(14+len));
       ctx.stroke();
       ctx.globalAlpha=1;
     }
@@ -1225,7 +1362,9 @@ const UI={
     });
     $("btn-doublexp").addEventListener("click",()=>Ads.rewardDoubleXP());
     $("btn-continue").addEventListener("click",()=>Ads.rewardContinue());
+    $("btn-coinrevive").addEventListener("click",()=>Game.coinRevive());
     $("btn-privacy").addEventListener("click",()=>Ads.showPrivacyOptions());
+    this.applyScheme();
     this.refreshHome();
   },
 
@@ -1240,6 +1379,8 @@ const UI={
   },
   refreshHome(){
     $("s-best").textContent=S.best;
+    $("s-coins").textContent=S.coins;
+    $("shop-dot").classList.toggle("hidden",!this.shopHasNew());
     $("s-streak").textContent=S.streak;
     $("s-rebirth").textContent=S.rebirths>0?`REBIRTH ×${(1+S.rebirths*CONFIG.REBIRTH_MULT_GAIN).toFixed(1)}`:"XP ×"+xpMult().toFixed(1);
     $("s-level").textContent=S.level;
@@ -1294,12 +1435,20 @@ const UI={
     if(wasBest){ S.best=score; Audio2.unlock(); }
     $("o-score").textContent=score;
     $("o-xp").textContent=`+${Game.runXPGained} XP  (×${xpMult().toFixed(1)} bonus)`;
+    // coin payout: score-scaled + a bonus per PERFECT landed
+    const coinsEarned=Math.round(score*CONFIG.COINS_PER_SCORE)+Game.runPerfects*CONFIG.COINS_COMBO_BONUS;
+    S.coins+=coinsEarned;
+    $("o-coins").textContent=`+${coinsEarned} 🪙  ·  total ${S.coins}`;
     $("o-level").textContent=S.level;
     const need=xpForLevel(S.level);
     $("o-xptext").textContent=`${S.xpInLevel} / ${need} XP`;
     $("o-xpfill").style.width=`${clamp(S.xpInLevel/need*100,0,100)}%`;
-    // rewarded buttons: continue once per run; double XP once per run
+    // revive paths (both resolve BEFORE any pending interstitial):
+    // ad continue once per run; coin continue at an escalating price
     $("btn-continue").disabled=Game.revived||!Ads.rewardedReady();
+    const revPrice=Game.nextRevivePrice();
+    $("o-revcost").textContent=revPrice;
+    $("btn-coinrevive").disabled=S.coins<revPrice;
     $("btn-doublexp").disabled=Game.runXPGained<=0||!Ads.rewardedReady();
     S.lastRun=score;
     S.runsPlayed++; S.deaths++;
@@ -1318,6 +1467,8 @@ const UI={
   },
 
   toast(txt,big=false){
+    const box=$("toasts");   // cap the stack: a burst of unlocks/level-ups
+    while(box.children.length>=4) box.firstChild.remove();
     const div=document.createElement("div");
     div.className="toast"+(big?" big":"");
     div.textContent=txt;
@@ -1333,32 +1484,71 @@ const UI={
     setTimeout(()=>el.classList.remove("on"),1200);
   },
 
+  /* ── SHOP ──────────────────────────────────────────────────────────
+     Hybrid model (chosen for continuity with the existing XP curve):
+     lifetime XP unlocks a TIER's availability (unlockCost — the same
+     endless thresholds as before), coins BUY the item (coinPrice).
+     Item states: XP-locked → buyable (+NEW badge) → owned → equipped. */
   renderUnlocks(){
     $("u-xp").textContent=S.lifetimeXP;
+    $("u-coins").textContent=S.coins;
     const grid=$("u-grid"); grid.innerHTML="";
-    const owned=unlockedCount();
-    const show=owned+4;                 // tease the next 4 locked items
-    for(let i=0;i<show;i++){
+    const cat=this.curTab;
+    const avail=unlockedCount();        // XP-availability (shared tier curve)
+    const seen=S.shopSeen[cat];
+    for(let i=0;i<avail+4;i++){         // tease the next 4 XP-locked tiers
       const cell=document.createElement("button");
       cell.className="cell";
-      const locked=i>=owned;
-      let item;
-      if(this.curTab==="trail"){ item=trailItem(i); cell.style.background=item.c; }
-      else if(this.curTab==="skin"){ item=skinItem(i); cell.style.background="#20264a"; cell.style.color=item.c; cell.textContent=item.shape; }
-      else { item=bgItem(i); cell.style.background=`linear-gradient(${item.top},${item.bot})`; }
+      const item=CAT_ITEM[cat](i);
+      // cell IS the preview: swatch / gradient / glyph in the item's style
+      if(cat==="trail")      cell.style.background=item.c;
+      else if(cat==="skin"){ cell.style.background="#20264a"; cell.style.color=item.c; cell.textContent=item.shape; }
+      else if(cat==="bg")    cell.style.background=`linear-gradient(${item.top},${item.bot})`;
+      else if(cat==="sound"){cell.style.background="#20264a"; cell.style.fontSize="22px"; cell.textContent="♪"; }
+      else{                  cell.style.background="#20264a"; cell.style.fontSize="20px"; cell.textContent="✹"; }
       cell.title=item.name;
-      if(locked){
+      const owned=S.owned[cat].includes(i);
+      if(i>=avail){                     // XP-locked: needs more lifetime XP
         cell.classList.add("lock");
-        cell.innerHTML+=`<div class="cost">🔒${unlockCost(i)}</div>`;
-      }else{
-        if(S.equip[this.curTab]===i) cell.classList.add("eq");
+        cell.innerHTML+=`<div class="cost">⭐${unlockCost(i)}xp</div>`;
+      }else if(!owned){                 // available: coins buy it
+        cell.innerHTML+=`<div class="cost">🪙${coinPrice(i)}</div>`;
+        if(i>=seen) cell.innerHTML+=`<div class="badge">NEW</div>`;
+        cell.addEventListener("click",()=>this.buy(cat,i));
+      }else{                            // owned: tap to equip (+preview)
+        if(S.equip[cat]===i) cell.classList.add("eq");
         cell.addEventListener("click",()=>{
-          S.equip[this.curTab]=i; save(); Audio2.ui(); Haptics.tap();
+          S.equip[cat]=i; save(); Haptics.tap();
+          if(cat==="sound") Audio2.preview(i); else Audio2.ui();
+          if(cat==="trail") this.applyScheme();
+          if(cat==="fx")    // live demo burst behind the translucent panel
+            Particles.perfectFX(Game.vw/2,Game.camY+Game.vh/2,40,this.trailColor(),fxItem(i));
           this.renderUnlocks();
         });
       }
       grid.appendChild(cell);
     }
+    S.shopSeen[cat]=avail; save();      // this tab's tiers are now "seen"
+    $("shop-dot").classList.toggle("hidden",!this.shopHasNew());
+  },
+  buy(cat,i){
+    const price=coinPrice(i), item=CAT_ITEM[cat](i);
+    if(cat==="sound") Audio2.preview(i);          // hear it before buying
+    if(S.coins<price){ this.toast(`Need 🪙${price-S.coins} more`); return; }
+    if(!confirm(`Buy "${item.name}" for ${price} coins?`)) return;
+    S.coins-=price; S.owned[cat].push(i); S.equip[cat]=i;
+    save(); Audio2.unlock(); Haptics.perfect();
+    this.toast(`✦ ${item.name} — equipped!`,true);
+    if(cat==="trail") this.applyScheme();
+    this.renderUnlocks();
+  },
+  shopHasNew(){                          // any buyable tier not yet seen?
+    const avail=unlockedCount();
+    return SHOP_CATS.some(c=>avail>S.shopSeen[c]);
+  },
+  /* equipped colour scheme drives the trail AND the UI accent palette */
+  applyScheme(){
+    document.documentElement.style.setProperty("--accent",this.trailColor());
   },
 };
 
@@ -1459,9 +1649,9 @@ const Ads={
     const everyN=CONFIG.ADS_INTERSTITIAL_EVERY_N_DEATHS;
     const cooled=(Date.now()-this.lastInterstitialAt)/1000>=CONFIG.ADS_INTERSTITIAL_MIN_INTERVAL_S;
     this.interstitialPending=this.interstitialLoaded && cooled && S.deaths%everyN===0;
-    // Revive not on offer this death (already used, or no fill)?
+    // Revive not on offer this death (ad continue spent AND coins short)?
     // Then there's nothing to contend with — resolve immediately.
-    const reviveOffered=!Game.revived && this.rewardedLoaded;
+    const reviveOffered=(!Game.revived && this.rewardedLoaded) || S.coins>=Game.nextRevivePrice();
     if(!reviveOffered) this.flushInterstitial();
   },
   /* player passed on revive: Retry / Home tapped on the over screen */
@@ -1508,7 +1698,7 @@ const Ads={
       UI.gameOverXPRefresh?.();
     }else if(kind==="continue"){
       UI.toast("🎁 RUN CONTINUES!",true);
-      Game.revive();
+      Game.revive(true);   // true = consumes the once-per-run AD continue
     }
   },
 
