@@ -104,8 +104,8 @@ button:disabled{opacity:.35; animation:none}
 .mission.done .mprog{color:var(--accent)}
 
 /* Unlocks browser */
-#unlocks .tabs{display:flex;gap:8px}
-#unlocks .tabs button{padding:10px 16px;min-height:44px;font-size:14px}
+#unlocks .tabs{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:94vw}
+#unlocks .tabs button{padding:10px 14px;min-height:44px;min-width:0;font-size:14px}
 #unlocks .tabs button.on{background:var(--accent);color:#06251d}
 .grid{display:grid;grid-template-columns:repeat(4,64px);gap:10px;max-height:44vh;
   overflow-y:auto;padding:6px;touch-action:pan-y}
@@ -118,6 +118,11 @@ button:disabled{opacity:.35; animation:none}
   font-size:8px;font-weight:900;padding:2px 5px;border-radius:8px;letter-spacing:.05em;
   animation:pulseBtn 1.2s infinite}
 .cell.arm{border-color:#ffc94d;box-shadow:0 0 14px #ffc94daa;animation:pulseBtn .7s infinite}
+.packrow{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  width:100%;min-height:54px;padding:10px 16px;font-size:14px;text-align:left;
+  background:#ffffff0d;border-radius:12px}
+.packrow b{text-align:right;color:var(--accent);font-size:13px;line-height:1.25}
+.packrow small{color:var(--dim);font-weight:400}
 #shop-dot{color:var(--accent2);font-size:22px;line-height:0;vertical-align:middle;margin-left:4px}
 
 /* Toast banners (level-up, unlock, streak, milestone) */
@@ -223,6 +228,7 @@ button:disabled{opacity:.35; animation:none}
     <button data-tab="bg">Worlds</button>
     <button data-tab="sound">Sound</button>
     <button data-tab="fx">FX</button>
+    <button data-tab="coins">🪙+</button>
   </div>
   <div class="grid" id="u-grid"></div>
   <div class="dimtxt">XP unlocks a tier · coins buy it. Tap an owned item to equip (sound &amp; FX preview on tap). New styles generate forever.</div>
@@ -309,9 +315,29 @@ const CONFIG = {
 
   /* ── RELEASE INDICATOR — long for onboarding, shrinks smoothly with
         level to a floor. Independent of TARGET_R_MIN by design. ─────── */
-  INDICATOR_LEN_BASE: 44,       // tangent aim-line length at level 1
+  INDICATOR_LEN_BASE: 68,       // tangent aim-line length at level 1
   INDICATOR_LEN_MIN: 14,        // floor — never fully disappears
   INDICATOR_SHRINK: 3.5,        // shrink ·√(level−1) between BASE and MIN
+
+  /* ── TRAFFIC-LIGHT ASSIST — the NEXT ring's edge tints by what a
+        release RIGHT NOW would score. Derived from classifyShot(), the
+        same function the capture code scores with — green is a
+        guaranteed perfect, never a cosmetic approximation. ──────────── */
+  TRAFFIC_LIGHT_ASSIST: true,
+
+  /* ── IN-APP PURCHASES (Google Play Billing) ───────────────────────
+        Plugin: @capgo/native-purchases PINNED to 7.19.3 in package.json
+        (Capacitor-7 line, matching the AdMob pin). All product IDs are
+        placeholders — create matching products in Play Console →
+        Monetize → In-app products, then replace. */
+  IAP_ENABLED: true,            // master kill-switch for all billing code
+  IAP_COIN_PACKS: [             // consumables — repeat-purchasable
+    { productId:"orbit_rush_coins_small", coins:  500, label:"Small"  }, // TODO: replace with real product ID before release
+    { productId:"orbit_rush_coins_medium",coins: 1500, label:"Medium" }, // TODO: replace with real product ID before release
+    { productId:"orbit_rush_coins_large", coins: 4000, label:"Large"  }, // TODO: replace with real product ID before release
+    { productId:"orbit_rush_coins_mega",  coins:12000, label:"Mega"   }, // TODO: replace with real product ID before release
+  ],
+  IAP_REMOVE_ADS_PRODUCT_ID: "orbit_rush_remove_ads", // non-consumable  // TODO: replace with real product ID before release
 
   /* ── PERFORMANCE / FX ─────────────────────────────────────────────── */
   DPR_CAP: 2,                   // cap devicePixelRatio for cheap GPUs
@@ -357,6 +383,7 @@ const DEFAULT_SAVE={
   missions:[],                 // active missions (see Missions)
   missionSeed:1,               // monotonically increasing mission generator seed
   coins:0,                     // spendable currency (earned per run)
+  removeAds:false,             // non-consumable IAP: banner+interstitial off
   /* item 0 of every category is free & pre-owned */
   owned:{trail:[0],skin:[0],bg:[0],sound:[0],fx:[0]},
   equip:{trail:0,skin:0,bg:0,sound:0,fx:0},
@@ -921,6 +948,16 @@ const Game={
     $("btn-pause").style.display="block";
   },
 
+  /* what would a release RIGHT NOW score? Exactly the tangent onTap()
+     would launch along, classified by the same classifyShot() the
+     capture code scores with. Drives the traffic-light ring tint. */
+  predictRelease(){
+    const d=this.dot;
+    if(d.mode!=="orbit"||!this.next) return null;
+    const tx=-Math.sin(d.angle)*d.dir, ty=Math.cos(d.angle)*d.dir;
+    return classifyShot(d.x,d.y,tx,ty,this.next);
+  },
+
   onTap(){
     if(this.state!=="playing") return;
     const d=this.dot;
@@ -936,6 +973,7 @@ const Game={
      distance to the ring's center → hit quality + near-miss feedback. */
   capture(perp){
     const ring=this.next;
+    // same threshold expression as classifyShot() — keep them identical
     const perfect=perp<=ring.r*CONFIG.PERFECT_FRACTION;
     let points;
     if(perfect){
@@ -1089,14 +1127,20 @@ const Game={
       const px=d.x,py=d.y;
       d.x+=d.vx*dt; d.y+=d.vy*dt;
       const ring=this.next;
-      // segment-based checks → no tunneling even on a lagging frame
+      // segment-based checks → no tunneling even on a lagging frame.
+      // Capture on the SEGMENT distance (not just the endpoint), so a
+      // razor-edge clip can't step across the ring in one frame — this
+      // is what makes classifyShot()'s prediction exact for static
+      // rings at any frame rate.
       const distNow=Math.hypot(d.x-ring.x,d.y-ring.y);
-      d.minDist=Math.min(d.minDist,segPointDist(px,py,d.x,d.y,ring.x,ring.y));
-      if(distNow<=ring.r){
+      const segd=segPointDist(px,py,d.x,d.y,ring.x,ring.y);
+      d.minDist=Math.min(d.minDist,segd);
+      if(segd<=ring.r){
         // perpendicular (closest-approach) distance of the flight line —
-        // this is the "how centered was that" metric
+        // the "how centered was that" metric, via the SAME shotPerp()
+        // the traffic-light predictor uses (see classifyShot)
         const vlen=Math.hypot(d.vx,d.vy);
-        const perp=Math.abs(((ring.x-d.x)*d.vy-(ring.y-d.y)*d.vx)/vlen);
+        const {perp}=shotPerp(d.x,d.y,d.vx/vlen,d.vy/vlen,ring);
         this.capture(Math.min(perp,d.minDist));
       }else{
         const movingAway=((ring.x-d.x)*d.vx+(ring.y-d.y)*d.vy)<0;
@@ -1115,6 +1159,26 @@ const Game={
     this.camY=lerp(this.camY,targetCam,1-Math.exp(-dt*4));
   },
 };
+/* ── SHOT CLASSIFIER — single source of truth ─────────────────────────
+   Used BOTH by the in-flight capture code and the traffic-light
+   predictor, so the light can never disagree with the score.
+   perp = closest-approach distance of the flight ray to the ring
+   center. It is invariant along a straight flight, so for a stationary
+   ring the release-time prediction IS the capture-time outcome.
+   (Once targets start drifting at n≥MOVE_START_N the light reads the
+   ring's current position — the same position a release now would be
+   scored against.) */
+function shotPerp(px,py,tx,ty,ring){
+  return {
+    ahead:(ring.x-px)*tx+(ring.y-py)*ty>0,          // ring in front of travel?
+    perp:Math.abs((ring.x-px)*ty-(ring.y-py)*tx),   // |cross(T, C−P)|, T unit
+  };
+}
+function classifyShot(px,py,tx,ty,ring){
+  const s=shotPerp(px,py,tx,ty,ring);
+  if(!s.ahead||s.perp>ring.r) return "miss";
+  return s.perp<=ring.r*CONFIG.PERFECT_FRACTION?"perfect":"hit";
+}
 /* point-to-segment distance (capture & near-miss math) */
 function segPointDist(ax,ay,bx,by,cx,cy){
   const dx=bx-ax,dy=by-ay;
@@ -1186,6 +1250,21 @@ Game.render=function(){
     // target ring: outer + dashed inner "perfect zone" that breathes
     const n=this.next;
     const breathe=1+Math.sin(this.time*3)*0.04;
+    // traffic-light assist: edge glow on the NEXT ring only, colored by
+    // classifyShot() — the exact function the score uses — so green
+    // means "release now = guaranteed PERFECT". Fixed semantic colors
+    // (not the equipped scheme), drawn as a glow outside the neutral
+    // white ring so it reads on every backdrop without repainting it.
+    if(CONFIG.TRAFFIC_LIGHT_ASSIST&&this.state==="playing"&&this.dot.mode==="orbit"){
+      const res=this.predictRelease();
+      const tint=res==="perfect"?"#3dfc8a":res==="hit"?"#ffd54d":"#ff5e4d";
+      ctx.strokeStyle=tint;
+      ctx.globalAlpha=0.22; ctx.lineWidth=9;
+      ctx.beginPath(); ctx.arc(n.x,n.y-cam,n.r+7,0,TAU); ctx.stroke();
+      ctx.globalAlpha=0.9; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.arc(n.x,n.y-cam,n.r+7,0,TAU); ctx.stroke();
+      ctx.globalAlpha=1;
+    }
     ctx.strokeStyle="#ffffff"; ctx.lineWidth=3;
     ctx.beginPath(); ctx.arc(n.x,n.y-cam,n.r,0,TAU); ctx.stroke();
     ctx.strokeStyle=trailC; ctx.globalAlpha=0.55; ctx.lineWidth=2;
@@ -1505,6 +1584,8 @@ const UI={
     $("u-coins").textContent=S.coins;
     const grid=$("u-grid"); grid.innerHTML="";
     const cat=this.curTab;
+    if(cat==="coins"){ this.renderCoinsTab(grid); return; }
+    grid.style.gridTemplateColumns="";   // restore 4-col grid after coins tab
     const avail=unlockedCount();        // XP-availability (shared tier curve)
     const seen=S.shopSeen[cat];
     for(let i=0;i<avail+4;i++){         // tease the next 4 XP-locked tiers
@@ -1574,6 +1655,33 @@ const UI={
     this.toast(`✦ ${item.name} — equipped!`,true);
     if(cat==="trail") this.applyScheme();
     this.renderUnlocks();
+  },
+  /* 🪙+ tab: real-money coin packs + Remove Ads + Restore (Play Billing).
+     In a browser these no-op with a toast — see the Billing module. */
+  renderCoinsTab(grid){
+    grid.style.gridTemplateColumns="1fr";  // full-width rows, not swatches
+    CONFIG.IAP_COIN_PACKS.forEach((p,idx)=>{
+      const b=document.createElement("button");
+      b.className="packrow";
+      b.innerHTML=`<span>💰 ${p.label}</span><b>${p.coins.toLocaleString()} 🪙</b>`;
+      b.addEventListener("click",()=>Billing.buyCoinPack(idx));
+      grid.appendChild(b);
+    });
+    const ra=document.createElement("button");
+    ra.className="packrow";
+    if(S.removeAds){
+      ra.disabled=true;
+      ra.innerHTML=`<span>✔ Ads removed</span><b>thank you!</b>`;
+    }else{
+      ra.innerHTML=`<span>🚫 Remove Ads</span><b>banner + interstitial<br><small>rewarded bonuses stay</small></b>`;
+      ra.addEventListener("click",()=>Billing.buyRemoveAds());
+    }
+    grid.appendChild(ra);
+    const rs=document.createElement("button");
+    rs.className="packrow"; rs.style.opacity=".7";
+    rs.innerHTML=`<span>↻ Restore purchases</span>`;
+    rs.addEventListener("click",()=>Billing.restore());
+    grid.appendChild(rs);
   },
   shopHasNew(){                          // any buyable tier not yet seen?
     const avail=unlockedCount();
@@ -1645,16 +1753,22 @@ const Ads={
       AdMob.addListener("onRewardedVideoAdReward",()=>{ this.grantPendingReward(); });
       AdMob.addListener("onRewardedVideoAdDismissed",()=>{ this.rewardedLoaded=false; this.pendingReward=null; this.prepRewarded(); });
 
-      /* ── 4. Banner up immediately, full-screen formats pre-loaded. ── */
-      await AdMob.showBanner({
-        adId: CONFIG.BANNER_AD_UNIT_ID,
-        adSize: "ADAPTIVE_BANNER",
-        position: "BOTTOM_CENTER",
-        margin: 0,
-        isTesting: CONFIG.ADS_TESTING_MODE,
-      });
-      this.prepInterstitial();
-      this.prepRewarded();
+      /* ── 4. Banner up immediately, full-screen formats pre-loaded.
+             Remove-Ads IAP suppresses banner + interstitial ONLY —
+             rewarded ads stay live (players opt in for the reward). ── */
+      if(S.removeAds){
+        console.log("[ads] Remove-Ads owned — banner/interstitial suppressed");
+      }else{
+        await AdMob.showBanner({
+          adId: CONFIG.BANNER_AD_UNIT_ID,
+          adSize: "ADAPTIVE_BANNER",
+          position: "BOTTOM_CENTER",
+          margin: 0,
+          isTesting: CONFIG.ADS_TESTING_MODE,
+        });
+        this.prepInterstitial();
+      }
+      this.prepRewarded();   // ALWAYS — rewarded is exempt from Remove-Ads
       console.log("[ads] initialized");
     }catch(e){ console.warn("[ads] init failed — continuing without ads",e); }
   },
@@ -1681,7 +1795,9 @@ const Ads={
     if(!AdMob){ console.log("[ads] (no-op) interstitial check, death #"+S.deaths); return; }
     const everyN=CONFIG.ADS_INTERSTITIAL_EVERY_N_DEATHS;
     const cooled=(Date.now()-this.lastInterstitialAt)/1000>=CONFIG.ADS_INTERSTITIAL_MIN_INTERVAL_S;
-    this.interstitialPending=this.interstitialLoaded && cooled && S.deaths%everyN===0;
+    // Remove-Ads layers ON TOP of the cadence + revive gate (kills the
+    // interstitial outright; the rest of the gate logic is unchanged)
+    this.interstitialPending=!S.removeAds && this.interstitialLoaded && cooled && S.deaths%everyN===0;
     // Revive not on offer this death (ad continue spent AND coins short)?
     // Then there's nothing to contend with — resolve immediately.
     const reviveOffered=(!Game.revived && this.rewardedLoaded) || S.coins>=Game.nextRevivePrice();
@@ -1690,6 +1806,7 @@ const Ads={
   /* player passed on revive: Retry / Home tapped on the over screen */
   reviveDeclined(){ this.flushInterstitial(); },
   async flushInterstitial(){
+    if(S.removeAds){ this.interstitialPending=false; return; }  // IAP guard
     if(!this.interstitialPending) return;
     this.interstitialPending=false;
     const AdMob=this.plugin(); if(!AdMob) return;
@@ -1735,6 +1852,19 @@ const Ads={
     }
   },
 
+  /* Remove-Ads purchased (or restored) mid-session: take the banner
+     down and give its reserved space back. Rewarded ads UNTOUCHED —
+     the continue/2×XP buttons must keep working after the purchase. */
+  async applyRemoveAds(){
+    this.interstitialPending=false;
+    const AdMob=this.plugin(); if(!AdMob) return;
+    try{
+      await AdMob.removeBanner();
+      document.documentElement.style.setProperty("--banner-h","0px");
+      Game.resize();
+    }catch(e){ console.warn("[ads] banner removal failed",e); }
+  },
+
   /* "Privacy & ad options" — re-show the UMP form so users can change
      consent any time (required by Google in consent regions). */
   async showPrivacyOptions(){
@@ -1744,6 +1874,97 @@ const Ads={
       if(typeof AdMob.showPrivacyOptionsForm==="function") await AdMob.showPrivacyOptionsForm();
       else await AdMob.showConsentForm();
     }catch(e){ console.warn("[ads] privacy form unavailable",e); }
+  },
+};
+
+/* ═══════════════════════════════════════════════════════════════════════
+   BILLING — Google Play Billing via @capgo/native-purchases (pinned
+   7.19.3, Capacitor-7 line). Same feature-detection pattern as Ads:
+   in a browser every entry point no-ops with a console log.
+
+   Products (all placeholder IDs in CONFIG):
+   · Coin packs   → consumables, repeat-purchasable, grant into S.coins
+                    (the same save the shop already spends from).
+   · Remove Ads   → non-consumable, persisted as S.removeAds; kills
+                    banner + interstitial ONLY. Rewarded ads are exempt
+                    by design — players opt into those for rewards.
+   · Restore      → Play requires non-consumables to be restorable;
+                    re-grants Remove-Ads found in purchase history.
+   Test with Play's License Testing accounts (Play Console → Settings →
+   License testing) — testers see test-card purchase flows, no charge.
+   ═══════════════════════════════════════════════════════════════════════ */
+const Billing={
+  plugin(){ return (CONFIG.IAP_ENABLED && window.Capacitor?.isNativePlatform?.() && window.Capacitor?.Plugins?.NativePurchases) || null; },
+
+  async init(){
+    const NP=this.plugin();
+    if(!NP){ console.log("[iap] billing plugin not available — purchases disabled (browser/dev mode)"); return; }
+    try{ // warm the product cache so the store sheet opens instantly
+      await NP.getProducts({
+        productIdentifiers:[...CONFIG.IAP_COIN_PACKS.map(p=>p.productId),CONFIG.IAP_REMOVE_ADS_PRODUCT_ID],
+        productType:"inapp",
+      });
+      console.log("[iap] initialized");
+    }catch(e){ console.warn("[iap] product query failed (continuing)",e); }
+  },
+
+  async buyCoinPack(idx){
+    const pack=CONFIG.IAP_COIN_PACKS[idx];
+    const NP=this.plugin();
+    if(!NP){
+      console.log("[iap] (no-op) coin pack purchase:",pack.productId);
+      UI.toast("Purchases work in the Android build");
+      return;
+    }
+    try{
+      // resolves only on a completed purchase; throws on cancel/failure
+      await NP.purchaseProduct({ productIdentifier:pack.productId, productType:"inapp", quantity:1 });
+      this.grantCoins(pack.coins);
+    }catch(e){ console.warn("[iap] purchase failed/cancelled",e); }
+  },
+  grantCoins(n){
+    S.coins+=n; save();               // same persistence the shop spends
+    Audio2.unlock(); Haptics.perfect();
+    UI.toast(`🪙 +${n} coins!`,true);
+    UI.refreshHome();
+    if(!$("unlocks").classList.contains("hidden")) UI.renderUnlocks();
+  },
+
+  async buyRemoveAds(){
+    const NP=this.plugin();
+    if(!NP){
+      console.log("[iap] (no-op) remove-ads purchase:",CONFIG.IAP_REMOVE_ADS_PRODUCT_ID);
+      UI.toast("Purchases work in the Android build");
+      return;
+    }
+    if(S.removeAds) return;
+    try{
+      await NP.purchaseProduct({ productIdentifier:CONFIG.IAP_REMOVE_ADS_PRODUCT_ID, productType:"inapp", quantity:1 });
+      this.grantRemoveAds();
+    }catch(e){ console.warn("[iap] purchase failed/cancelled",e); }
+  },
+  grantRemoveAds(){
+    if(S.removeAds) return;
+    S.removeAds=true; save();
+    Ads.applyRemoveAds();             // banner down, interstitials off…
+    // …rewarded continue/2×XP DELIBERATELY untouched (see Ads header)
+    Audio2.unlock(); Haptics.perfect();
+    UI.toast("✔ Ads removed — thank you!",true);
+    if(!$("unlocks").classList.contains("hidden")) UI.renderUnlocks();
+  },
+
+  /* Play policy: non-consumables must be restorable (reinstall/new
+     device). Consumable coin packs are intentionally NOT restorable. */
+  async restore(){
+    const NP=this.plugin();
+    if(!NP){ console.log("[iap] (no-op) restore purchases"); UI.toast("Restore works in the Android build"); return; }
+    try{
+      const res=await NP.restorePurchases();
+      const owned=(res?.transactions||res?.purchases||[])
+        .map(t=>t?.productIdentifier||t?.productId).filter(Boolean);
+      if(owned.includes(CONFIG.IAP_REMOVE_ADS_PRODUCT_ID)){ this.grantRemoveAds(); }
+      else UI.toast("No purchases to restore");
+    }catch(e){ console.warn("[iap] restore failed",e); }
   },
 };
 
@@ -1780,6 +2001,7 @@ UI.renderMissions();
 Progress.checkDaily();
 wireLifecycle();
 Ads.init();
+Billing.init();
 console.log("[orbit-rush] ready — level",S.level,"best",S.best);
 </script>
 </body>

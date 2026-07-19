@@ -122,6 +122,13 @@ the keystore or its passwords.
       (the in-app flow is already wired).
 - [ ] Host `PRIVACY_POLICY.md` publicly and link it in Play Console; fill
       the Data Safety form to match (see table inside the policy).
+- [ ] **Billing:** create in-app products in Play Console → Monetize →
+      In-app products matching the `IAP_*` IDs in the CONFIG block
+      (4 consumable coin packs + non-consumable `orbit_rush_remove_ads`),
+      then replace the placeholder IDs. Plugin: `@capgo/native-purchases`
+      (pinned 7.19.3, Capacitor-7 line). Verify with License-testing
+      accounts (Play Console → Settings → License testing) — including
+      the Restore-purchases path after a reinstall.
 
 ## 3. Play Store asset checklist
 
