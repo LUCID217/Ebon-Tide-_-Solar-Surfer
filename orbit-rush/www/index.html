@@ -117,6 +117,7 @@ button:disabled{opacity:.35; animation:none}
 .cell .badge{position:absolute;top:-6px;right:-6px;background:var(--accent2);color:#fff;
   font-size:8px;font-weight:900;padding:2px 5px;border-radius:8px;letter-spacing:.05em;
   animation:pulseBtn 1.2s infinite}
+.cell.arm{border-color:#ffc94d;box-shadow:0 0 14px #ffc94daa;animation:pulseBtn .7s infinite}
 #shop-dot{color:var(--accent2);font-size:22px;line-height:0;vertical-align:middle;margin-left:4px}
 
 /* Toast banners (level-up, unlock, streak, milestone) */
@@ -1327,6 +1328,8 @@ Game.drawHUD=function(ctx){
    ═══════════════════════════════════════════════════════════════════════ */
 const UI={
   curTab:"trail",
+  pendingBuy:null, pendingBuyT:0,    // two-tap purchase state
+  rebirthArmed:false, rebirthT:0,    // two-tap rebirth state
   trailColor(){ return trailItem(S.equip.trail).c; },
 
   init(){
@@ -1346,10 +1349,17 @@ const UI={
     $("btn-fx").addEventListener("click",()=>{
       S.lowFX=!S.lowFX; save(); Game.resize(); this.refreshHome(); Audio2.ui();
     });
+    // Two-tap confirm — native confirm() dialogs are silently blocked in
+    // sandboxed WebViews/previews, so no blocking dialogs anywhere.
     $("btn-rebirth").addEventListener("click",()=>{
+      if(this.rebirthArmed){
+        clearTimeout(this.rebirthT); this.rebirthArmed=false;
+        Progress.rebirth(); return;
+      }
       const mult=(1+(S.rebirths+1)*CONFIG.REBIRTH_MULT_GAIN).toFixed(1);
-      if(confirm(`REBIRTH?\n\nLevel & XP reset to 1.\nYou keep: unlocks, best score, streak.\nYou gain: permanent ×${mult} XP forever.`))
-        Progress.rebirth();
+      this.rebirthArmed=true; Audio2.ui();
+      $("btn-rebirth").textContent=`🌀 Reset to Lv1, keep unlocks, gain ×${mult} XP forever — tap again!`;
+      this.rebirthT=setTimeout(()=>{ this.rebirthArmed=false; this.refreshHome(); },3500);
     });
     $("btn-unlocks").addEventListener("click",()=>{ Audio2.ui(); this.showScreen("unlocks"); this.renderUnlocks(); });
     $("btn-u-back").addEventListener("click",()=>{ Audio2.ui(); this.home(); });
@@ -1390,6 +1400,7 @@ const UI={
     $("btn-sound").textContent=S.muted?"🔇":"🔊";
     $("btn-fx").textContent=S.lowFX?"✨ FX: LO":"✨ FX: HI";
     $("btn-rebirth").classList.toggle("hidden",!Progress.rebirthAvailable());
+    if(!this.rebirthArmed) $("btn-rebirth").textContent="🌀 REBIRTH — permanent XP boost";
     this.renderMissions();
   },
   renderMissions(){
@@ -1511,9 +1522,16 @@ const UI={
       if(i>=avail){                     // XP-locked: needs more lifetime XP
         cell.classList.add("lock");
         cell.innerHTML+=`<div class="cost">⭐${unlockCost(i)}xp</div>`;
-      }else if(!owned){                 // available: coins buy it
-        cell.innerHTML+=`<div class="cost">🪙${coinPrice(i)}</div>`;
-        if(i>=seen) cell.innerHTML+=`<div class="badge">NEW</div>`;
+        // a dead tap reads as broken — explain the gate instead
+        cell.addEventListener("click",()=>{
+          Audio2.ui();
+          this.toast(`⭐ Unlocks at ${unlockCost(i)} lifetime XP — you have ${S.lifetimeXP}. Coins buy it once unlocked.`);
+        });
+      }else if(!owned){                 // available: coins buy it (two-tap)
+        const armed=this.pendingBuy&&this.pendingBuy.cat===cat&&this.pendingBuy.i===i;
+        if(armed) cell.classList.add("arm");
+        cell.innerHTML+=`<div class="cost">${armed?"tap = buy!":"🪙"+coinPrice(i)}</div>`;
+        if(i>=seen&&!armed) cell.innerHTML+=`<div class="badge">NEW</div>`;
         cell.addEventListener("click",()=>this.buy(cat,i));
       }else{                            // owned: tap to equip (+preview)
         if(S.equip[cat]===i) cell.classList.add("eq");
@@ -1531,11 +1549,26 @@ const UI={
     S.shopSeen[cat]=avail; save();      // this tab's tiers are now "seen"
     $("shop-dot").classList.toggle("hidden",!this.shopHasNew());
   },
+  /* two-tap purchase (no confirm() — blocked in sandboxed WebViews):
+     first tap arms the cell + previews, second tap within 3s buys. */
   buy(cat,i){
     const price=coinPrice(i), item=CAT_ITEM[cat](i);
-    if(cat==="sound") Audio2.preview(i);          // hear it before buying
-    if(S.coins<price){ this.toast(`Need 🪙${price-S.coins} more`); return; }
-    if(!confirm(`Buy "${item.name}" for ${price} coins?`)) return;
+    if(S.coins<price){
+      if(cat==="sound") Audio2.preview(i);
+      this.toast(`Need 🪙${price-S.coins} more for ${item.name}`);
+      return;
+    }
+    const armed=this.pendingBuy&&this.pendingBuy.cat===cat&&this.pendingBuy.i===i;
+    if(!armed){
+      clearTimeout(this.pendingBuyT);
+      this.pendingBuy={cat,i};
+      if(cat==="sound") Audio2.preview(i); else Audio2.ui();
+      this.toast(`${item.name} — 🪙${price}. Tap again to buy`);
+      this.pendingBuyT=setTimeout(()=>{ this.pendingBuy=null; this.renderUnlocks(); },3000);
+      this.renderUnlocks();
+      return;
+    }
+    clearTimeout(this.pendingBuyT); this.pendingBuy=null;
     S.coins-=price; S.owned[cat].push(i); S.equip[cat]=i;
     save(); Audio2.unlock(); Haptics.perfect();
     this.toast(`✦ ${item.name} — equipped!`,true);
@@ -1706,7 +1739,7 @@ const Ads={
      consent any time (required by Google in consent regions). */
   async showPrivacyOptions(){
     const AdMob=this.plugin();
-    if(!AdMob){ alert("Ad privacy options appear here in the Android build."); return; }
+    if(!AdMob){ UI.toast("Ad privacy options appear here in the Android build"); return; }
     try{
       if(typeof AdMob.showPrivacyOptionsForm==="function") await AdMob.showPrivacyOptionsForm();
       else await AdMob.showConsentForm();
