@@ -227,7 +227,10 @@ button:disabled{opacity:.35; animation:none}
    ═══════════════════════════════════════════════════════════════════════ */
 const CONFIG = {
 
-  /* ── ADS (Google OFFICIAL TEST IDs — safe in dev, must not ship) ──── */
+  /* ── ADS (Google OFFICIAL TEST IDs — safe in dev, must not ship) ────
+     Plugin: @capacitor-community/admob PINNED to 7.2.0 in package.json.
+     The rewarded/interstitial event names used below are v7-specific
+     (v8 renames them) — do not bump the major without updating Ads. ── */
   ADMOB_APP_ID:          "ca-app-pub-3940256099942544~3347511713", // TODO: replace before release (also in AndroidManifest.xml + capacitor.config.json!)
   BANNER_AD_UNIT_ID:     "ca-app-pub-3940256099942544/6300978111", // TODO: replace before release
   INTERSTITIAL_AD_UNIT_ID:"ca-app-pub-3940256099942544/1033173712",// TODO: replace before release
@@ -1191,8 +1194,10 @@ const UI={
 
   init(){
     $("btn-play").addEventListener("click",()=>{ Audio2.ensure(); Audio2.ui(); Game.startRun(); });
-    $("btn-retry").addEventListener("click",()=>{ Audio2.ui(); Game.startRun(); });
-    $("btn-home").addEventListener("click",()=>{ Audio2.ui(); this.home(); });
+    // Leaving the over screen = revive declined → a pending interstitial
+    // (3rd-death cadence) may fire now, never earlier.
+    $("btn-retry").addEventListener("click",()=>{ Ads.reviveDeclined(); Audio2.ui(); Game.startRun(); });
+    $("btn-home").addEventListener("click",()=>{ Ads.reviveDeclined(); Audio2.ui(); this.home(); });
     $("btn-pause").addEventListener("click",()=>this.pause());
     $("btn-resume").addEventListener("click",()=>this.resume());
     $("btn-p-restart").addEventListener("click",()=>{ Audio2.ui(); Game.startRun(); });
@@ -1301,7 +1306,7 @@ const UI={
     Missions.progress({run:true,score});
     save();
     this.showScreen("over");
-    Ads.onGameOver();       // maybe-interstitial (every Nth death, throttled)
+    Ads.onGameOver();       // marks interstitial pending; fires only after revive is resolved
   },
 
   /* re-sync the game-over screen's level/XP bar (after rewarded 2× XP) */
@@ -1369,7 +1374,12 @@ const UI={
                     is fed into --banner-h so no UI sits behind it.
    · Interstitial → on game-over, only every Nth death
                     (CONFIG.ADS_INTERSTITIAL_EVERY_N_DEATHS) AND at most
-                    once per ADS_INTERSTITIAL_MIN_INTERVAL_S seconds.
+                    once per ADS_INTERSTITIAL_MIN_INTERVAL_S seconds —
+                    and NEVER while a rewarded "continue" is still on the
+                    table: an eligible interstitial goes PENDING and only
+                    fires once revive is unavailable or declined (Retry/
+                    Home). Watching any rewarded ad cancels it for that
+                    death: the rewarded impression always wins.
    · Rewarded     → user-initiated only: "2× XP" and "CONTINUE" buttons
                     on the game-over screen.
    · UMP consent  → requested BEFORE initialize/ads, per Google policy;
@@ -1378,6 +1388,7 @@ const UI={
 const Ads={
   interstitialLoaded:false, rewardedLoaded:false,
   lastInterstitialAt:0, pendingReward:null, doubleXPUsed:false,
+  interstitialPending:false,   // cadence-eligible, waiting on the revive decision
 
   plugin(){ return (CONFIG.ADS_ENABLED && window.Capacitor?.isNativePlatform?.() && window.Capacitor?.Plugins?.AdMob) || null; },
 
@@ -1438,26 +1449,39 @@ const Ads={
 
   rewardedReady(){ return this.rewardedLoaded; },
 
-  /* game-over hook: throttled interstitial cadence */
-  async onGameOver(){
+  /* game-over hook: decide interstitial ELIGIBILITY only — never show
+     here. The revive decision resolves first (see reviveDeclined /
+     showRewarded); the interstitial fires only after it. */
+  onGameOver(){
     this.doubleXPUsed=false;
     const AdMob=this.plugin();
     if(!AdMob){ console.log("[ads] (no-op) interstitial check, death #"+S.deaths); return; }
     const everyN=CONFIG.ADS_INTERSTITIAL_EVERY_N_DEATHS;
     const cooled=(Date.now()-this.lastInterstitialAt)/1000>=CONFIG.ADS_INTERSTITIAL_MIN_INTERVAL_S;
-    if(this.interstitialLoaded && cooled && S.deaths%everyN===0){
-      try{
-        Audio2.suspend();               // never play game audio under an ad
-        await AdMob.showInterstitial();
-        this.lastInterstitialAt=Date.now();
-      }catch(e){ console.warn("[ads] interstitial show failed",e); this.prepInterstitial(); }
-    }
+    this.interstitialPending=this.interstitialLoaded && cooled && S.deaths%everyN===0;
+    // Revive not on offer this death (already used, or no fill)?
+    // Then there's nothing to contend with — resolve immediately.
+    const reviveOffered=!Game.revived && this.rewardedLoaded;
+    if(!reviveOffered) this.flushInterstitial();
+  },
+  /* player passed on revive: Retry / Home tapped on the over screen */
+  reviveDeclined(){ this.flushInterstitial(); },
+  async flushInterstitial(){
+    if(!this.interstitialPending) return;
+    this.interstitialPending=false;
+    const AdMob=this.plugin(); if(!AdMob) return;
+    try{
+      Audio2.suspend();               // never play game audio under an ad
+      await AdMob.showInterstitial();
+      this.lastInterstitialAt=Date.now();
+    }catch(e){ console.warn("[ads] interstitial show failed",e); this.prepInterstitial(); }
   },
 
   async showRewarded(kind){
     const AdMob=this.plugin();
     if(!AdMob){ console.log("[ads] (no-op) rewarded requested:",kind); return; }
     if(!this.rewardedLoaded) return;
+    this.interstitialPending=false;   // rewarded impression wins this death
     this.pendingReward=kind;
     try{ Audio2.suspend(); await AdMob.showRewardVideoAd(); }
     catch(e){ console.warn("[ads] rewarded show failed",e); this.pendingReward=null; this.prepRewarded(); }
