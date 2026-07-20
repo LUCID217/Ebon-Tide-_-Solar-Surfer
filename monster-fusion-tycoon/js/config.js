@@ -1,0 +1,163 @@
+// ============================================================================
+// CONFIG — THE tuning file.
+// Every balance knob in the game lives here, grouped the way a designer tunes:
+//   FUSION / ECONOMY / RARITY / HABITATS / SHOP / OBJECTIVES / SAVE.
+// Nothing below should require hunting through code to rebalance.
+// ============================================================================
+
+export const CONFIG = {
+
+  // --------------------------------------------------------------------------
+  // FUSION — costs, timing, inheritance variance, mutation
+  // --------------------------------------------------------------------------
+  fusion: {
+    baseCostCoins: 50,          // coin cost of a tier-1 fusion...
+    costCoinsPerTier: 60,       // ...+ this per (combined parent tier)
+    baseCostEssence: 5,         // essence cost of a tier-1 fusion...
+    costEssencePerTier: 4,      // ...+ this per (combined parent tier)
+    baseTimeSec: 6,             // fusion resolve time at tier 1 (kept short: it's drama, not a wall)
+    timePerTierSec: 4,          // + seconds per combined parent tier
+    maxTimeSec: 90,             // hard cap so deep fusions never feel punitive
+
+    statVariance: 0.25,         // stats inherit parent avg ±25% (uniform)
+    statTierBonus: 0.06,        // +6% flat stat growth per child tier (fusion should trend upward)
+    statCap: 999,               // absolute stat ceiling
+
+    maxElements: 3,             // hybrids carry at most this many elements
+    mutationChance: 0.12,       // chance a fusion gains an element NEITHER parent has (keeps the tree open-ended)
+    archetypeShiftChance: 0.22, // chance the child's body archetype differs from both parents
+    maxTier: 12,                // creatures at this tier can no longer be fused (endgame trophies)
+  },
+
+  // --------------------------------------------------------------------------
+  // ECONOMY — passive revenue, maintenance, happiness, offline progress
+  // --------------------------------------------------------------------------
+  economy: {
+    tickSeconds: 1,             // simulation granularity
+    // Revenue: coins/sec = rarityBase * (power/100) * happinessMult * habitatQualityMult * traits
+    rarityRevenuePerSec: {      // base coins/sec by rarity (before all multipliers)
+      common: 0.6, uncommon: 1.5, rare: 4, epic: 10, legendary: 26, mythic: 70,
+    },
+    // Maintenance: coins/sec drained per creature. Scales super-linearly with
+    // rarity so top creatures are only worth keeping if well-managed.
+    rarityMaintenancePerSec: {
+      common: 0.1, uncommon: 0.4, rare: 1.6, epic: 5, legendary: 16, mythic: 50,
+    },
+    vitalityMaintDiscount: 0.5, // at vitality 100, maintenance is reduced by up to 50%
+    happinessRevenueCurve: 1.6, // revenueMult = (happiness/100)^this — unhappy creatures crater fast
+    unhappyThreshold: 35,       // below this happiness, a creature earns NOTHING (still costs maintenance!)
+
+    // Happiness drivers (recomputed continuously, 0..100):
+    happinessBase: 50,
+    happinessElementMatch: 25,  // habitat biome matches one of creature's elements
+    happinessCrowdPenalty: 30,  // habitat at full capacity: up to -30 scaled by fill ratio
+    happinessCharmFactor: 0.2,  // + charm * this
+    happinessDecorPer: 4,       // + per decoration in the habitat (see habitats.maxDecorations)
+
+    collectCapSeconds: 3600,    // uncollected revenue pool caps at 1 hour of income
+    offlineCapSeconds: 7200,    // offline progress simulated up to 2 hours
+    startingCoins: 150,
+    startingEssence: 20,
+    startingRelics: 0,
+    essenceTricklePerCollect: 1, // small essence gain each manual collect (grind loop beyond fusion)
+  },
+
+  // --------------------------------------------------------------------------
+  // RARITY — odds, spikes, colors
+  // --------------------------------------------------------------------------
+  rarity: {
+    order: ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'],
+    // Fusion child rarity: start from the HIGHER parent rarity, then roll:
+    upgradeChance: 0.20,        // chance to spike +1 tier
+    doubleUpgradeChance: 0.04,  // chance to spike +2 tiers (checked first)
+    downgradeChance: 0.10,      // chance to drop -1 (fusion isn't free progress)
+    elementDiversityBonus: 0.05,// + to upgradeChance per element the child has beyond 1
+    colors: {                   // UI accent per rarity (borders, glows, log entries)
+      common: '#9aa5b1', uncommon: '#4caf7d', rare: '#4a90d9',
+      epic: '#a45de2', legendary: '#e8a33d', mythic: '#e84d6f',
+    },
+    eggWeights: {               // rarity odds when buying a base egg from the shop
+      common: 70, uncommon: 24, rare: 6, epic: 0, legendary: 0, mythic: 0,
+    },
+  },
+
+  // --------------------------------------------------------------------------
+  // HABITATS — biomes, capacity, upgrade & expansion costs
+  // --------------------------------------------------------------------------
+  habitats: {
+    baseCapacity: 3,            // creature slots at level 1
+    capacityPerLevel: 1,        // + slots per upgrade level
+    maxLevel: 8,
+    baseQualityMult: 1.0,       // revenue multiplier at level 1...
+    qualityPerLevel: 0.15,      // ...+15% per level
+    upgradeBaseCost: 200,       // coins for level 1→2...
+    upgradeCostGrowth: 1.9,     // ...×1.9 each further level (exponential wall)
+    newHabitatBaseCost: 400,    // coins for your 2nd habitat...
+    newHabitatCostGrowth: 2.2,  // ...×2.2 each additional habitat
+    maxHabitats: 10,
+    maxDecorations: 5,          // decoration slots per habitat
+    decorationCost: 120,        // coins per decoration (each adds economy.happinessDecorPer happiness)
+    // Biomes a habitat can be built as. 'meadow' is neutral (no element match bonus).
+    biomes: ['meadow', 'fire', 'water', 'earth', 'air', 'nature', 'shadow', 'light', 'storm'],
+  },
+
+  // --------------------------------------------------------------------------
+  // SHOP — eggs, resource exchange rates, staff/automation
+  // --------------------------------------------------------------------------
+  shop: {
+    eggCostCoins: 100,          // a base (tier-1, random element) creature egg
+    eggCostGrowth: 1.15,        // egg price ×1.15 per egg ever bought (soft cap on egg spam)
+    // Exchange rates (all conversions are lossy — relics are precious):
+    coinsPerEssence: 15,        // sell 1 essence for this many coins
+    essenceCostCoins: 25,       // buy 1 essence for this many coins (worse than selling — intended)
+    essencePerRelic: 40,        // break 1 relic into essence
+    relicCostEssence: 120,      // trade essence up into 1 relic (steep!)
+    // Staff / automation (one-time purchases):
+    autoCollectorCost: 1500,    // coins: collects revenue automatically every tick
+    groundskeeperCost: 3,       // relics: +10 happiness to ALL creatures, forever
+    groundskeeperHappiness: 10,
+    fusionRitualistCost: 5,     // relics: fusion timers run 2x faster
+    fusionRitualistSpeed: 2,
+  },
+
+  // --------------------------------------------------------------------------
+  // OBJECTIVES — dailies + milestone rewards
+  // --------------------------------------------------------------------------
+  objectives: {
+    dailyCount: 3,              // dailies offered per day
+    dailyRewardEssence: 10,
+    dailyRewardCoins: 200,
+    // Milestone thresholds → each step pays milestoneRelics
+    fusionMilestones: [1, 5, 15, 40, 100, 250],
+    discoveryMilestones: [3, 8, 20, 50, 120],
+    coinMilestones: [1000, 10000, 100000, 1000000],
+    milestoneRelics: 1,
+  },
+
+  // --------------------------------------------------------------------------
+  // SAVE — persistence
+  // --------------------------------------------------------------------------
+  save: {
+    key: 'mft_save',            // localStorage key
+    schemaVersion: 1,           // bump + add a migration in save.js when shape changes
+    autosaveSeconds: 20,
+  },
+};
+
+// ----------------------------------------------------------------------------
+// ELEMENTS — identity data (not balance): display + color per element.
+// Adding an element here automatically flows into fusion, art, habitats, log.
+// ----------------------------------------------------------------------------
+export const ELEMENTS = {
+  fire:   { icon: '🔥', color: '#e8603c', dark: '#7a2812', label: 'Fire' },
+  water:  { icon: '💧', color: '#3c8fe8', dark: '#123f7a', label: 'Water' },
+  earth:  { icon: '⛰️', color: '#a07648', dark: '#4d3417', label: 'Earth' },
+  air:    { icon: '🌪️', color: '#8fd0dd', dark: '#3a6a75', label: 'Air' },
+  nature: { icon: '🌿', color: '#57b452', dark: '#1f5a1c', label: 'Nature' },
+  shadow: { icon: '🌑', color: '#6b5a91', dark: '#241b3d', label: 'Shadow' },
+  light:  { icon: '✨', color: '#e8d05c', dark: '#8a7a1a', label: 'Light' },
+  storm:  { icon: '⚡', color: '#7c6ce8', dark: '#2c2079', label: 'Storm' },
+};
+
+// Body archetypes — drive both art silhouettes and species naming.
+export const ARCHETYPES = ['Drake', 'Wisp', 'Golem', 'Serpent', 'Sprite', 'Fang', 'Moth', 'Kraken', 'Stag', 'Imp'];
