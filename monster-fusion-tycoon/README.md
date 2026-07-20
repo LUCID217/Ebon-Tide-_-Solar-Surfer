@@ -31,7 +31,9 @@ Vanilla HTML + CSS + JS (ES modules). All persistence is `localStorage`.
 - **Traits** — epic+ creatures carry passive boons (auras, multipliers, fusion
   perks) *and* burdens (Ravenous upkeep, Tyrant sourness). Legendary+ always
   has a burden: the strongest creature in the game is net-negative if you just
-  hoard it.
+  hoard it. Some boons are biome-conditional (Nightbloom/Sunborn/Tidebound
+  only fire in their matching habitat), tying the trait roll to placement.
+  Full list in `traits.js` and the in-game ❓ help.
 - **Shop** — eggs (price creeps up; free when you're down to <2 creatures — the
   anti-softlock mercy rule), lossy resource exchange (coins ⇄ essence ⇄ relics),
   and permanent staff hires gated behind progression. Habitats can be upgraded,

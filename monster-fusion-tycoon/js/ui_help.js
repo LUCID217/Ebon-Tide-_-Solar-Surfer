@@ -4,6 +4,7 @@
 // ============================================================================
 
 import { openModal, closeModal } from './ui.js';
+import { TRAITS } from './traits.js';
 
 export function showHelp() {
   const m = openModal(`
@@ -27,6 +28,15 @@ export function showHelp() {
       forging). Spend them on permanent staff.</p>
       <p><b>📤 Sharing</b> — export any creature as a string/URL from its card;
       import friends' creatures in the Collection tab.</p>
+      <details>
+        <summary style="cursor:pointer"><b>📚 Trait reference</b></summary>
+        <div style="margin-top:6px;font-size:.85rem">
+          ${Object.values(TRAITS).map(t =>
+            `<div class="row spread" style="margin:2px 0">
+              <span>${t.icon} ${t.name} <span class="dim">${t.boon ? '' : '(burden)'}</span></span>
+              <span class="dim">${t.desc}</span></div>`).join('')}
+        </div>
+      </details>
     </div>
     <div class="row" style="justify-content:flex-end;margin-top:10px">
       <button id="help-close" class="primary">Let me in</button>
