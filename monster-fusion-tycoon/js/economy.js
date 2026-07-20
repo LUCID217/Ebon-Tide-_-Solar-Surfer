@@ -88,6 +88,35 @@ export function habitatQualityMult(h) {
   return H.baseQualityMult + (h.level - 1) * H.qualityPerLevel;
 }
 
+/**
+ * Themed exhibit: 2+ residents who ALL share at least one element earn a
+ * habitat-wide revenue bonus. Rewards curated placement over dumping.
+ * Returns the shared element key, or null.
+ */
+export function themedExhibitElement(habitatId) {
+  const residents = creaturesInHabitat(habitatId);
+  if (residents.length < 2) return null;
+  let shared = [...residents[0].elements];
+  for (const c of residents.slice(1)) {
+    shared = shared.filter(e => c.elements.includes(e));
+    if (!shared.length) return null;
+  }
+  return shared[0];
+}
+
+/** Coins received for selling/retiring a creature (rarity + tier scaled). */
+export function sellValue(c) {
+  return E.sellValueByRarity[c.rarity] + E.sellValuePerTier * (c.tier - 1);
+}
+
+export function sellCreature(c) {
+  if (!S.creatures[c.id]) return { ok: false, why: 'Already gone.' };
+  const value = sellValue(c);
+  delete S.creatures[c.id];
+  earnCoins(value);
+  return { ok: true, value };
+}
+
 /** Move a creature into a habitat (or null → reserve). Enforces capacity. */
 export function placeCreature(creature, habitatId) {
   if (habitatId !== null) {
@@ -132,9 +161,11 @@ export function revenuePerSec(c) {
   const hp = happinessOf(c);
   if (hp < E.unhappyThreshold) return 0; // sulking: earns nothing, still costs upkeep
   const h = S.habitats[c.habitatId];
+  const themed = themedExhibitElement(c.habitatId) ? 1 + H.themedExhibitBonus : 1;
   return baseRevenuePerSec(c)
     * Math.pow(hp / 100, E.happinessRevenueCurve)
     * habitatQualityMult(h)
+    * themed
     * ownMults(c).revenue
     * auraOn(c).revenueMult;
 }

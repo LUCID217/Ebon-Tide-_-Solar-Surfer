@@ -180,5 +180,7 @@ export function registerDiscovery(c) {
     rarity: c.rarity, seed: c.seed, tier: c.tier,
     firstAt: Date.now(), count: 1,
   };
+  // New species pay an essence bounty — exploration feeds the breeding loop.
+  S.resources.essence += CONFIG.economy.discoveryEssenceBonus;
   return true; // new discovery!
 }

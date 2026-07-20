@@ -9,6 +9,7 @@ import { S, creaturesInHabitat, reserveCreatures, habitatCapacity } from './stat
 import {
   totalPerSec, collectRevenue, upgradeCost, upgradeHabitat, addDecoration,
   habitatQualityMult, placeCreature, buyHabitat, nextHabitatCost,
+  themedExhibitElement, sellValue, sellCreature,
 } from './economy.js';
 import {
   registerTab, creatureCard, fmt, fmtSigned, esc, toast,
@@ -104,6 +105,9 @@ function habitatHtml(h) {
         <h3>${ELEMENTS[h.biome]?.icon || '🌾'} ${esc(h.name)}</h3>
         <span class="dim">Lv.${h.level} · ×${habitatQualityMult(h).toFixed(2)} quality ·
           ${residents.length}/${cap} slots · ${'🌸'.repeat(h.decorations)}</span>
+        ${themedExhibitElement(h.id)
+          ? `<span class="gold" title="All residents share an element: +${Math.round(CONFIG.habitats.themedExhibitBonus * 100)}% habitat revenue">
+              ${ELEMENTS[themedExhibitElement(h.id)]?.icon || ''} themed exhibit!</span>` : ''}
         <span style="flex:1"></span>
         ${up} ${dec}
       </div>
@@ -154,7 +158,7 @@ function openCreature(c) {
         ${options}
       </select>
       <button id="btn-share" class="ghost" title="Export as a share string">📤 Share</button>
-      <button id="btn-release" class="ghost bad" title="Release this creature forever">🕊️ Release</button>
+      <button id="btn-release" class="ghost bad" title="Retire this creature for coins">💰 Sell ${fmt(sellValue(c))}</button>
     </div>
     <div class="dim" style="margin-top:6px">Tip: creatures are happiest in habitats matching their element.</div>`;
   showCreatureModal(c, extra, m => {
@@ -167,9 +171,11 @@ function openCreature(c) {
     });
     m.querySelector('#btn-share').addEventListener('click', () => showShareModal(c));
     m.querySelector('#btn-release').addEventListener('click', () => {
-      delete S.creatures[c.id];
-      toast(`${esc(c.name)} released into the wild. 🕊️`);
-      saveGame(); closeModal();
+      if (!confirm(`Sell ${c.name} for ${fmt(sellValue(c))} coins? This is permanent.`)) return;
+      const res = sellCreature(c);
+      if (!res.ok) return toast(res.why, 'bad');
+      toast(`${esc(c.name)} retired to a loving farm. <b class="gold">+${fmt(res.value)}</b> 🪙`, 'gold');
+      saveGame(); renderResources(); closeModal();
     });
   });
 }

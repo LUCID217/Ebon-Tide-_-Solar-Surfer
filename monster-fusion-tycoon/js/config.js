@@ -60,6 +60,14 @@ export const CONFIG = {
     startingEssence: 20,
     startingRelics: 0,
     essenceTricklePerCollect: 1, // small essence gain each manual collect (grind loop beyond fusion)
+
+    // Selling/retiring creatures (also the anti-softlock valve — you can
+    // always liquidate a money-losing monster):
+    sellValueByRarity: {
+      common: 30, uncommon: 90, rare: 300, epic: 1000, legendary: 3200, mythic: 10000,
+    },
+    sellValuePerTier: 25,       // + coins per tier above 1
+    discoveryEssenceBonus: 5,   // essence granted whenever a NEW species is logged
   },
 
   // --------------------------------------------------------------------------
@@ -109,6 +117,7 @@ export const CONFIG = {
     maxHabitats: 10,
     maxDecorations: 5,          // decoration slots per habitat
     decorationCost: 120,        // coins per decoration (each adds economy.happinessDecorPer happiness)
+    themedExhibitBonus: 0.25,   // +25% habitat revenue when 2+ residents all share an element
     // Biomes a habitat can be built as. 'meadow' is neutral (no element match bonus).
     biomes: ['meadow', 'fire', 'water', 'earth', 'air', 'nature', 'shadow', 'light', 'storm'],
   },
