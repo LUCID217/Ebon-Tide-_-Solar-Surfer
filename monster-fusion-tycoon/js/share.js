@@ -53,9 +53,11 @@ export function exportCreature(c) {
   return `${FORMAT_TAG}.${payload}.${hashStr(payload).toString(36)}`;
 }
 
-/** Shareable URL for the current page. */
+/** Shareable URL for the current page.
+ *  Built from location.href, NOT location.origin — origin is the string
+ *  "null" on file:// and in sandboxed embeds, which mangled the URL. */
 export function exportURL(c) {
-  const base = location.origin + location.pathname;
+  const base = location.href.split('#')[0];
   return `${base}#c=${exportCreature(c)}`;
 }
 

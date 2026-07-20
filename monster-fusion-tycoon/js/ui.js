@@ -129,6 +129,23 @@ export function wireModal() {
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 }
 
+/**
+ * In-game confirmation dialog. Never use window.confirm(): sandboxed
+ * embeds/viewers block native dialogs silently (confirm() returns false),
+ * which makes buttons look dead. This modal works everywhere.
+ */
+export function confirmModal(messageHtml, onYes, yesLabel = 'Yes, do it') {
+  const m = openModal(`
+    <h3 style="margin-top:0">Are you sure?</h3>
+    <div style="margin:10px 0">${messageHtml}</div>
+    <div class="row" style="justify-content:flex-end;gap:10px">
+      <button id="cfm-no">Cancel</button>
+      <button id="cfm-yes" class="primary">${yesLabel}</button>
+    </div>`);
+  m.querySelector('#cfm-no').addEventListener('click', closeModal);
+  m.querySelector('#cfm-yes').addEventListener('click', () => { closeModal(); onYes(); });
+}
+
 /** Detail modal for a creature: art, stats, income breakdown, actions. */
 export function showCreatureModal(c, extraActionsHtml = '', wireExtra = null) {
   const { revenue, maintenance, net } = incomeBreakdown(c);

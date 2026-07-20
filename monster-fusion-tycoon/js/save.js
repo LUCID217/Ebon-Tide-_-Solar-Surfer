@@ -44,6 +44,10 @@ function storageAvailable() {
 }
 const HAS_STORAGE = storageAvailable();
 
+/** Exposed so the UI can warn when progress cannot persist (sandboxed
+ *  viewers / private mode give the game an opaque origin with no storage). */
+export function storageOk() { return HAS_STORAGE; }
+
 export function saveGame() {
   if (!HAS_STORAGE) return false;
   try {

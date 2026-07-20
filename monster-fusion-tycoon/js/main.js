@@ -6,12 +6,12 @@
 
 import { CONFIG } from './config.js';
 import { S } from './state.js';
-import { loadGame, saveGame, wipeSave } from './save.js';
+import { loadGame, saveGame, wipeSave, storageOk } from './save.js';
 import { makeBaseCreature } from './creature.js';
 import { ensureStarterHabitat, applyOfflineProgress, economyTick, placeCreature, totalPerSec } from './economy.js';
 import { tryResolveFusion, registerDiscovery } from './fusion.js';
 import {
-  wireTabs, wireModal, switchTab, renderActiveTab, renderResources, toast, fmt,
+  wireTabs, wireModal, switchTab, renderActiveTab, renderResources, toast, fmt, confirmModal,
 } from './ui.js';
 
 // Tab modules self-register with the ui.js registry on import.
@@ -60,13 +60,14 @@ function boot() {
     toast(saveGame() ? '💾 Saved.' : '⚠️ Save unavailable in this browser.', saveGame() ? '' : 'bad');
   });
   document.getElementById('btn-wipe').addEventListener('click', () => {
-    if (!confirm('Wipe your save and start over? This cannot be undone.')) return;
-    wipeSave();
-    setupFreshGame();
-    saveGame();
-    renderResources();
-    switchTab('menagerie');
-    toast('Fresh start. Welcome back, keeper. 🌱');
+    confirmModal('Wipe your save and start over? This cannot be undone.', () => {
+      wipeSave();
+      setupFreshGame();
+      saveGame();
+      renderResources();
+      switchTab('menagerie');
+      toast('Fresh start. Welcome back, keeper. 🌱');
+    }, '🗑️ Wipe save');
   });
 
   // Offline progress report.
@@ -80,6 +81,16 @@ function boot() {
   }
 
   wireHelpButton();
+
+  // Sandboxed viewers / private mode can't persist — play works, saving won't.
+  // Say so loudly instead of losing progress silently.
+  if (!storageOk()) {
+    document.getElementById('btn-save').textContent = '⚠️';
+    document.getElementById('btn-save').title = 'Saving unavailable here';
+    toast('⚠️ This viewer can\'t save progress. The game is fully playable, ' +
+      'but download the file and open it in a browser to keep your menagerie.', 'bad');
+  }
+
   renderResources();
   switchTab('menagerie');
   startLoop();

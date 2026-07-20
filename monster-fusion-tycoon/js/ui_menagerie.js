@@ -13,7 +13,7 @@ import {
 } from './economy.js';
 import {
   registerTab, creatureCard, fmt, fmtSigned, esc, toast,
-  showCreatureModal, closeModal, renderResources,
+  showCreatureModal, closeModal, confirmModal, renderResources,
 } from './ui.js';
 import { saveGame } from './save.js';
 import { showShareModal } from './ui_share.js';
@@ -203,11 +203,15 @@ function openCreature(c) {
     });
     m.querySelector('#btn-share').addEventListener('click', () => showShareModal(c));
     m.querySelector('#btn-release').addEventListener('click', () => {
-      if (!confirm(`Sell ${c.name} for ${fmt(sellValue(c))} coins? This is permanent.`)) return;
-      const res = sellCreature(c);
-      if (!res.ok) return toast(res.why, 'bad');
-      toast(`${esc(c.name)} retired to a loving farm. <b class="gold">+${fmt(res.value)}</b> 🪙`, 'gold');
-      saveGame(); renderResources(); closeModal();
+      confirmModal(
+        `Sell <b>${esc(c.name)}</b> for <b class="gold">${fmt(sellValue(c))}</b> 🪙? This is permanent.`,
+        () => {
+          const res = sellCreature(c);
+          if (!res.ok) return toast(res.why, 'bad');
+          toast(`${esc(c.name)} retired to a loving farm. <b class="gold">+${fmt(res.value)}</b> 🪙`, 'gold');
+          saveGame(); renderResources();
+        },
+        '💰 Sell');
     });
   });
 }
