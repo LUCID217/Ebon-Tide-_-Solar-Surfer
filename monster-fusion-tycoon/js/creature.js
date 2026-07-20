@@ -33,6 +33,8 @@ const ELEMENT_SYLLABLES = {
 /**
  * Deterministic species name from elements + archetype + seed.
  * e.g. ['fire','storm'] + 'Drake' -> "Ember-Volt Drake"
+ * NOTE: archetype is STORED on the creature at creation, so extending
+ * ARCHETYPES later never renames existing creatures.
  */
 export function speciesName(creature) {
   const rng = mulberry32(creature.seed ^ 0xbeef);

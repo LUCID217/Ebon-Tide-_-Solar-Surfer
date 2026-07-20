@@ -193,4 +193,4 @@ export const ELEMENTS = {
 };
 
 // Body archetypes — drive both art silhouettes and species naming.
-export const ARCHETYPES = ['Drake', 'Wisp', 'Golem', 'Serpent', 'Sprite', 'Fang', 'Moth', 'Kraken', 'Stag', 'Imp'];
+export const ARCHETYPES = ['Drake', 'Wisp', 'Golem', 'Serpent', 'Sprite', 'Fang', 'Moth', 'Kraken', 'Stag', 'Imp', 'Wyrm', 'Basilisk'];

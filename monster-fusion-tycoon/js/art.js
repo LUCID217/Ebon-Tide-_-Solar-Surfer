@@ -181,6 +181,21 @@ function bodyFor(arch, rng, gid, primary, secondary) {
       <circle cx="50" cy="${j(36,3)}" r="11" fill="${fill}"/>
       <path d="M42 28 L${j(32,6)} ${j(10,6)} M40 26 L${j(26,6)} ${j(20,6)}" stroke="${secondary}" stroke-width="3" fill="none" stroke-linecap="round"/>
       <path d="M58 28 L${j(68,6)} ${j(10,6)} M60 26 L${j(74,6)} ${j(20,6)}" stroke="${secondary}" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+    case 'Wyrm': {
+      // Coiled body: three stacked arcs shrinking upward, head on top.
+      return `
+      <path d="M22 78 Q50 ${j(94,6)} 78 78 Q80 68 72 66 Q50 ${j(78,6)} 28 66 Q20 68 22 78 Z" fill="${fill}"/>
+      <path d="M28 62 Q50 ${j(74,6)} 72 62 Q74 54 67 52 Q50 ${j(62,6)} 33 52 Q26 54 28 62 Z" fill="${fill}" opacity="0.92"/>
+      <path d="M34 48 Q50 ${j(58,5)} 66 48 Q68 41 62 39 Q50 ${j(47,5)} 38 39 Q32 41 34 48 Z" fill="${fill}" opacity="0.85"/>
+      <circle cx="${j(50,6)}" cy="${j(32,4)}" r="10" fill="${fill}"/>
+      <path d="M46 24 L${j(44,4)} ${j(14,4)} L50 22 Z" fill="${secondary}"/>
+      <path d="M54 24 L${j(56,4)} ${j(14,4)} L50 22 Z" fill="${secondary}"/>`;
+    }
+    case 'Basilisk': return `
+      <ellipse cx="50" cy="${j(62,4)}" rx="${j(26,4)}" ry="${j(16,3)}" fill="${fill}"/>
+      <circle cx="50" cy="${j(38,3)}" r="12" fill="${fill}"/>
+      <path d="M40 30 L${j(36,4)} ${j(18,5)} L46 28 Z M50 26 L50 ${j(12,5)} L54 26 Z M60 30 L${j(64,4)} ${j(18,5)} L54 28 Z" fill="${secondary}"/>
+      <path d="M76 62 Q${j(92,6)} ${j(56,10)} 86 ${j(42,8)}" stroke="${secondary}" stroke-width="5" fill="none" stroke-linecap="round"/>`;
     case 'Imp': default: return `
       <ellipse cx="50" cy="${j(56,4)}" rx="${j(18,4)}" ry="${j(20,4)}" fill="${fill}"/>
       <path d="M38 40 L${j(34,4)} ${j(24,6)} L46 38 Z" fill="${secondary}"/>
