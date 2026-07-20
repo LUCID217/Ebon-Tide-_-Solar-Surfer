@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Monster Fusion Tycoon</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- ============ TOP BAR: resources + save controls ============ -->
+  <header id="topbar">
+    <h1 class="logo">🧬 Monster Fusion Tycoon</h1>
+    <div id="resource-bar">
+      <span class="res" id="res-coins" title="Coins — soft currency from zoo revenue">🪙 <b>0</b></span>
+      <span class="res" id="res-essence" title="Essence — breeding resource">💠 <b>0</b></span>
+      <span class="res" id="res-relics" title="Relics — rare material from achievements">🏺 <b>0</b></span>
+    </div>
+    <div id="topbar-actions">
+      <button id="btn-save" class="ghost" title="Save now (auto-saves too)">💾</button>
+      <button id="btn-wipe" class="ghost" title="Wipe save and restart">🗑️</button>
+    </div>
+  </header>
+
+  <!-- ============ TAB NAVIGATION ============ -->
+  <nav id="tabs">
+    <button class="tab active" data-tab="menagerie">🏞️ Menagerie</button>
+    <button class="tab" data-tab="den">🥚 Breeding Den</button>
+    <button class="tab" data-tab="shop">🛒 Shop</button>
+    <button class="tab" data-tab="collection">📖 Collection</button>
+    <button class="tab" data-tab="objectives">🎯 Objectives</button>
+  </nav>
+
+  <!-- ============ TAB PANELS (populated by ui.js) ============ -->
+  <main id="main">
+    <section id="tab-menagerie" class="panel active"></section>
+    <section id="tab-den" class="panel"></section>
+    <section id="tab-shop" class="panel"></section>
+    <section id="tab-collection" class="panel"></section>
+    <section id="tab-objectives" class="panel"></section>
+  </main>
+
+  <!-- ============ MODAL LAYER ============ -->
+  <div id="modal-backdrop" class="hidden">
+    <div id="modal" role="dialog" aria-modal="true"></div>
+  </div>
+
+  <!-- ============ TOAST NOTIFICATIONS ============ -->
+  <div id="toasts" aria-live="polite"></div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
