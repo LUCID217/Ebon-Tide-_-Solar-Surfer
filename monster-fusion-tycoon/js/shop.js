@@ -10,8 +10,11 @@ import { registerDiscovery } from './fusion.js';
 
 const SH = CONFIG.shop;
 
-/** Current egg price — creeps up with every egg ever bought (soft cap). */
+/** Current egg price — creeps up with every egg ever bought (soft cap).
+ *  MERCY RULE: with fewer than 2 creatures the menagerie can't fuse or grow,
+ *  so eggs are free — a hard-softlock (no creatures, no coins) is impossible. */
 export function eggPrice() {
+  if (Object.keys(S.creatures).length < 2) return 0;
   return Math.round(SH.eggCostCoins * Math.pow(SH.eggCostGrowth, S.counters.eggsBought));
 }
 
