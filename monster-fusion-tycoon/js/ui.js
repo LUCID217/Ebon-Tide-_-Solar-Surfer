@@ -9,6 +9,12 @@ import { S } from './state.js';
 import { generateCreatureArt, silhouetteSVG } from './art.js';
 import { rarityColor } from './creature.js';
 import { incomeBreakdown, happinessBreakdown, inSanctuary, isExotic } from './economy.js';
+import { generationOf, lineageRecord } from './lineage.js';
+
+// ui_lineage.js registers its modal here on import (mirrors the tab
+// registry pattern — keeps ui.js from importing a ui_* module).
+let lineageOpener = null;
+export function setLineageOpener(fn) { lineageOpener = fn; }
 import { traitsOf, traitChips } from './traits.js';
 
 // --- Tab registry ------------------------------------------------------------
@@ -162,7 +168,16 @@ export function showCreatureModal(c, extraActionsHtml = '', wireExtra = null) {
       <div class="cmeta dim">${elementIcons(c)} Tier ${c.tier} ·
         <span class="rarity-tag" style="--rarity:${rarityColor(c)}">${c.rarity}</span>
         ${c.mutated ? ' · <span class="gold">⚡ mutant</span>' : ''}</div>
-      ${c.parents ? `<div class="dim" style="margin-top:4px">Fused from ${esc(c.parents[0])} × ${esc(c.parents[1])}</div>` : '<div class="dim" style="margin-top:4px">Wild-born</div>'}
+      ${(() => {
+        // Prefer the lineage ledger (authoritative); fall back to the legacy
+        // parents-names field for pre-v4 creatures whose fusions predate it.
+        const rec = lineageRecord(c.id);
+        const from = rec ? [rec.a.name, rec.b.name] : c.parents;
+        return from
+          ? `<div class="dim" style="margin-top:4px">Fused from ${esc(from[0])} × ${esc(from[1])} · Gen ${generationOf(c.id)}</div>`
+          : '<div class="dim" style="margin-top:4px">Wild-born</div>';
+      })()}
+      ${lineageOpener ? `<div style="margin-top:6px"><button id="btn-lineage" class="ghost">🌳 Lineage</button></div>` : ''}
     </div>
     <div style="margin:12px 0">
       ${stat('Power', c.stats.power)}${stat('Charm', c.stats.charm)}${stat('Vitality', c.stats.vitality)}
@@ -201,6 +216,7 @@ export function showCreatureModal(c, extraActionsHtml = '', wireExtra = null) {
     </div>`);
   mountArt(m.querySelector('.art-big'), c);
   m.querySelector('#modal-close').addEventListener('click', closeModal);
+  m.querySelector('#btn-lineage')?.addEventListener('click', () => lineageOpener(c));
   if (wireExtra) wireExtra(m);
   return m;
 }

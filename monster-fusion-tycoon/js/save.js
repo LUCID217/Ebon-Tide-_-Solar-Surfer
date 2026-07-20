@@ -29,6 +29,14 @@ const MIGRATIONS = {
     save.version = 3;
     return save;
   },
+  // v3 -> v4: ancestry ledger. Pre-v4 fusions were never recorded, so old
+  // saves start with an empty ledger — their existing creatures simply read
+  // as roots (Gen 1). Non-destructive.
+  3: (save) => {
+    save.lineage = save.lineage || {};
+    save.version = 4;
+    return save;
+  },
 };
 
 /** True if localStorage is actually usable (private mode / quota can kill it). */

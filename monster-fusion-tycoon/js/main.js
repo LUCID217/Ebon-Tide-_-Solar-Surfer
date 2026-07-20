@@ -22,6 +22,7 @@ import './ui_collection.js';
 import { updateBadge } from './ui_objectives.js';
 import { handleShareHash } from './ui_share.js';
 import { showHelp, wireHelpButton } from './ui_help.js';
+import './ui_lineage.js'; // registers the 🌳 lineage opener into ui.js
 
 // --- New-game setup ----------------------------------------------------------
 

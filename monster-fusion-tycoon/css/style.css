@@ -221,6 +221,33 @@ h3 { font-size: 1rem; }
 .statbar .track > div { height: 100%; background: var(--accent); }
 .statbar .label { width: 66px; color: var(--text-dim); }
 
+/* ---------- Lineage tree ---------- */
+.lin-tree { max-height: 60vh; overflow-y: auto; }
+.lin-node {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-left: 3px solid var(--rarity, var(--border));
+  border-radius: 8px; padding: 6px 10px; margin: 5px 0;
+  min-width: 0; /* let children shrink instead of overflowing */
+}
+.lin-focus { border-color: var(--accent); border-left-color: var(--rarity, var(--accent)); }
+.lin-art { width: 38px; height: 38px; flex: none; }
+.lin-art svg { width: 100%; height: 100%; }
+.lin-info { flex: 1; min-width: 0; }
+.lin-name { font-size: .85rem; font-weight: 600; overflow-wrap: anywhere; }
+.lin-meta { font-size: .72rem; }
+.lin-badges { display: flex; flex-direction: column; gap: 3px; align-items: flex-end; flex: none; }
+.lin-badge { font-size: .68rem; color: var(--text-dim); white-space: nowrap; }
+.lin-jump {
+  font-size: .68rem; padding: 2px 8px;
+  border-color: var(--good); color: var(--good); background: transparent;
+}
+.lin-children {
+  margin-left: 12px; padding-left: 8px;
+  border-left: 2px solid var(--border);
+}
+.lin-more summary { cursor: pointer; font-size: .75rem; padding: 2px 0; }
+
 /* ---------- Toasts ---------- */
 #toasts {
   position: fixed; bottom: 18px; right: 18px; z-index: 60;

@@ -21,6 +21,7 @@ export function freshState() {
     pendingFusion: null,  // { parentAId, parentBId, resolveAt, childSeed } | null
     collectPool: 0,       // uncollected coins (manual-collect grind loop)
     discovered: {},       // speciesSignature -> { name, elements, archetype, rarity, firstAt, count }
+    lineage: {},          // childId -> { at, a: parentSnap, b: parentSnap } — ancestry ledger (v4+)
     upgrades: {           // one-time shop purchases
       autoCollector: false,
       groundskeeper: false,

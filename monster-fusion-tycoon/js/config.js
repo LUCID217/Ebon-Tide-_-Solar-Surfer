@@ -190,9 +190,10 @@ export const CONFIG = {
   // --------------------------------------------------------------------------
   save: {
     key: 'mft_save',            // localStorage key
-    schemaVersion: 3,           // bump + add a migration in save.js when shape changes
+    schemaVersion: 4,           // bump + add a migration in save.js when shape changes
                                 // v2: creatures gained `traits` (rolled from seed)
                                 // v3: counters gained discoveries/habitatUpgrades
+                                // v4: lineage ledger (childId -> parent snapshots)
     autosaveSeconds: 20,
   },
 };

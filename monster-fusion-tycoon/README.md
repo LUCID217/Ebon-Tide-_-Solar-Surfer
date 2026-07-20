@@ -48,6 +48,17 @@ Vanilla HTML + CSS + JS (ES modules). All persistence is `localStorage`.
   created. Fusion makes the space effectively unbounded.
 - **Objectives** — date-seeded dailies + lifetime milestones. Milestones are
   the only faucet for relics (premium material — earned, never bought).
+- **Lineage** — every fusion is recorded in an append-only ancestry ledger
+  (`S.lineage`, childId → parent snapshots, ~0.4 KB of JSON per fusion — a
+  1000-fusion save spends ~400 KB of the ~5 MB localStorage budget). The 🌳
+  button on any creature opens its family tree: focus creature at top, each
+  ancestor pair indented beneath, walking back to wild-born roots (🥚).
+  Ancestors still alive in the menagerie get a 🏡 jump button; consumed ones
+  render from their snapshots, art regenerated deterministically from stored
+  seeds. Generations beyond grandparents collapse behind native `<details>`
+  expanders, so the vertical layout never overflows at 390px. A creature's
+  Gen number (1 + max parent gen) shows in its modal and the tree header.
+  Lineage is local history — it does not travel in share strings.
 - **Sharing** — export any creature as an offline share string / URL; import
   and adopt someone else's for essence.
 
@@ -139,12 +150,14 @@ loads.
 - The save is the whole state object from `state.js` (resources, creatures,
   habitats, pending fusion, discovery log, upgrades, counters, objectives,
   `lastSeen` for offline progress).
-- Key: `mft_save`; current **schemaVersion: 3**.
+- Key: `mft_save`; current **schemaVersion: 4**.
 - Migrations live in `save.js` (`MIGRATIONS[fromVersion]`), run forward one
   version at a time on load. v1→v2 backfilled creature `traits` (rolled
   deterministically from each creature's seed, so migrated saves match fresh
-  rolls); v2→v3 added the discovery/upgrade lifetime counters. Unknown/newer
-  versions fall back to a fresh game instead of crashing.
+  rolls); v2→v3 added the discovery/upgrade lifetime counters; v3→v4 added
+  the lineage ledger (empty on migration — pre-v4 fusions were never recorded,
+  so existing creatures read as Gen-1 roots). Unknown/newer versions fall back
+  to a fresh game instead of crashing.
 
 ## Share-string format
 

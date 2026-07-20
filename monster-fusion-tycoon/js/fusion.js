@@ -16,6 +16,7 @@ import { S } from './state.js';
 import { mulberry32, hashStr, pick } from './rng.js';
 import { nextCreatureId, speciesName, speciesSignature } from './creature.js';
 import { rollTraits, fusionMods } from './traits.js';
+import { recordFusion } from './lineage.js';
 
 const F = CONFIG.fusion;
 const R = CONFIG.rarity;
@@ -172,6 +173,9 @@ export function tryResolveFusion() {
   if (!p || Date.now() < p.resolveAt) return null;
   const child = computeChild(p.parentSnapshotA, p.parentSnapshotB, p.childSeed);
   S.creatures[child.id] = child;
+  // Ancestry ledger: the only moment both consumed parents still exist in
+  // full — snapshot them before the pendingFusion record is discarded.
+  recordFusion(child, p.parentSnapshotA, p.parentSnapshotB);
   S.pendingFusion = null;
   registerDiscovery(child);
   return child;
