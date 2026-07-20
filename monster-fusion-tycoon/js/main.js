@@ -17,6 +17,9 @@ import {
 // Tab modules self-register with the ui.js registry on import.
 import './ui_menagerie.js';
 import { onFusionResolved } from './ui_den.js';
+import './ui_shop.js';
+import './ui_collection.js';
+import { updateBadge } from './ui_objectives.js';
 
 // --- New-game setup ----------------------------------------------------------
 
@@ -109,6 +112,7 @@ function startLoop() {
 
     renderResources();
     renderActiveTab();
+    updateBadge();
   }, CONFIG.economy.tickSeconds * 1000);
 }
 
