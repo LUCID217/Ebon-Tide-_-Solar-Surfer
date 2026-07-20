@@ -9,6 +9,7 @@ import { S } from './state.js';
 import { generateCreatureArt, silhouetteSVG } from './art.js';
 import { rarityColor } from './creature.js';
 import { incomeBreakdown, happinessOf } from './economy.js';
+import { traitsOf, traitChips } from './traits.js';
 
 // --- Tab registry ------------------------------------------------------------
 
@@ -104,7 +105,7 @@ export function creatureCard(c, opts = {}) {
   card.innerHTML = `
     <div class="art"></div>
     <div class="cname">${esc(c.name)}</div>
-    <div class="cmeta">${elementIcons(c)} T${c.tier} · <span class="rarity-tag" style="--rarity:${rarityColor(c)}">${c.rarity}</span></div>
+    <div class="cmeta">${elementIcons(c)} T${c.tier} · <span class="rarity-tag" style="--rarity:${rarityColor(c)}">${c.rarity}</span> ${traitChips(c)}</div>
     ${netHtml}`;
   mountArt(card.querySelector('.art'), c);
   if (opts.onClick) card.addEventListener('click', () => opts.onClick(c));
@@ -148,6 +149,11 @@ export function showCreatureModal(c, extraActionsHtml = '', wireExtra = null) {
     <div style="margin:12px 0">
       ${stat('Power', c.stats.power)}${stat('Charm', c.stats.charm)}${stat('Vitality', c.stats.vitality)}
     </div>
+    ${traitsOf(c).length ? `<div class="section" style="margin-bottom:10px">
+      ${traitsOf(c).map(t => `<div class="row spread" style="margin:2px 0">
+        <span>${t.icon} <b>${t.name}</b> <span class="dim" style="font-size:.72rem">${t.boon ? '' : 'burden'}</span></span>
+        <span class="dim" style="font-size:.8rem">${t.desc}</span></div>`).join('')}
+    </div>` : ''}
     <div class="section" style="margin-bottom:10px">
       <div class="row spread"><span>😊 Happiness</span><b class="num">${hp}/100</b></div>
       <div class="row spread"><span class="good">Revenue</span><b class="num good">+${fmt(revenue)}/s</b></div>

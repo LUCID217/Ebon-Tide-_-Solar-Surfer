@@ -9,10 +9,20 @@ import { CONFIG } from './config.js';
 import { S, setState, freshState } from './state.js';
 import { syncIdCounter } from './creature.js';
 
+import { rollTraits } from './traits.js';
+
 // Each entry migrates FROM that version TO version+1. Add one per schema bump.
-// Example for a future v1 -> v2:
-//   1: (save) => { save.newField = defaultValue; save.version = 2; return save; },
-const MIGRATIONS = {};
+const MIGRATIONS = {
+  // v1 -> v2: creatures gained passive traits. Traits roll deterministically
+  // from each creature's seed, so migrated saves match fresh rolls exactly.
+  1: (save) => {
+    for (const c of Object.values(save.creatures || {})) {
+      if (!c.traits) c.traits = rollTraits(c);
+    }
+    save.version = 2;
+    return save;
+  },
+};
 
 /** True if localStorage is actually usable (private mode / quota can kill it). */
 function storageAvailable() {

@@ -17,6 +17,7 @@ import { S } from './state.js';
 import { hashStr } from './rng.js';
 import { nextCreatureId, speciesName } from './creature.js';
 import { registerDiscovery } from './fusion.js';
+import { rollTraits } from './traits.js';
 
 const FORMAT_TAG = 'MFT1';
 
@@ -107,6 +108,7 @@ export function decodeShareString(raw) {
     bornAt: Date.now(),
     fusedCount: 0,
   };
+  creature.traits = rollTraits(creature); // deterministic from seed — travels for free
   creature.name = speciesName(creature);
   return { ok: true, creature };
 }

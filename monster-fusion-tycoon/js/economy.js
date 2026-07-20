@@ -13,6 +13,7 @@
 import { CONFIG } from './config.js';
 import { S, creaturesInHabitat, habitatCapacity, earnCoins, spend } from './state.js';
 import { baseRevenuePerSec, maintenancePerSec } from './creature.js';
+import { ownMults, auraOn } from './traits.js';
 
 const E = CONFIG.economy;
 const H = CONFIG.habitats;
@@ -118,24 +119,35 @@ export function happinessOf(c) {
   const cap = habitatCapacity(h);
   const fill = creaturesInHabitat(c.habitatId).length / cap;
   hp -= E.happinessCrowdPenalty * Math.max(0, (fill - 0.5) * 2); // penalty ramps in above half-full
+  hp += auraOn(c).happiness; // Muse lifts habitat-mates, Tyrant sours them
   return Math.max(0, Math.min(100, Math.round(hp)));
 }
 
 // --- Per-creature net income (also used by UI to show the balance sheet) -----
 
-/** Coins/sec this creature earns after happiness + habitat quality (0 if reserve/unhappy). */
+/** Coins/sec this creature earns after happiness + habitat quality + traits
+ *  (own multipliers and habitat-mates' auras). 0 if reserve/unhappy. */
 export function revenuePerSec(c) {
   if (c.habitatId === null) return 0;
   const hp = happinessOf(c);
   if (hp < E.unhappyThreshold) return 0; // sulking: earns nothing, still costs upkeep
   const h = S.habitats[c.habitatId];
-  return baseRevenuePerSec(c) * Math.pow(hp / 100, E.happinessRevenueCurve) * habitatQualityMult(h);
+  return baseRevenuePerSec(c)
+    * Math.pow(hp / 100, E.happinessRevenueCurve)
+    * habitatQualityMult(h)
+    * ownMults(c).revenue
+    * auraOn(c).revenueMult;
+}
+
+/** Coins/sec upkeep after trait multipliers (Ravenous, Frugal…). Always charged. */
+export function upkeepPerSec(c) {
+  return maintenancePerSec(c) * ownMults(c).maint;
 }
 
 /** Full breakdown for the UI: { revenue, maintenance, net } per second. */
 export function incomeBreakdown(c) {
   const revenue = revenuePerSec(c);
-  const maintenance = maintenancePerSec(c);
+  const maintenance = upkeepPerSec(c);
   return { revenue, maintenance, net: revenue - maintenance };
 }
 
@@ -144,7 +156,7 @@ export function totalPerSec() {
   let revenue = 0, maintenance = 0;
   for (const c of Object.values(S.creatures)) {
     revenue += revenuePerSec(c);
-    maintenance += maintenancePerSec(c);
+    maintenance += upkeepPerSec(c);
   }
   return { revenue, maintenance, net: revenue - maintenance };
 }

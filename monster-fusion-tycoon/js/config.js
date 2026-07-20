@@ -63,6 +63,18 @@ export const CONFIG = {
   },
 
   // --------------------------------------------------------------------------
+  // TRAITS — how many passive traits each rarity carries: [boons, burdens].
+  // Burden counts are the "power tax": legendary+ creatures are net-NEGATIVE
+  // if parked carelessly. Trait effect numbers live in traits.js definitions.
+  // --------------------------------------------------------------------------
+  traits: {
+    countsByRarity: {
+      common: [0, 0], uncommon: [1, 0], rare: [1, 0],
+      epic: [2, 1], legendary: [2, 1], mythic: [3, 2],
+    },
+  },
+
+  // --------------------------------------------------------------------------
   // RARITY — odds, spikes, colors
   // --------------------------------------------------------------------------
   rarity: {
@@ -139,7 +151,8 @@ export const CONFIG = {
   // --------------------------------------------------------------------------
   save: {
     key: 'mft_save',            // localStorage key
-    schemaVersion: 1,           // bump + add a migration in save.js when shape changes
+    schemaVersion: 2,           // bump + add a migration in save.js when shape changes
+                                // v2: creatures gained `traits` (rolled from seed)
     autosaveSeconds: 20,
   },
 };

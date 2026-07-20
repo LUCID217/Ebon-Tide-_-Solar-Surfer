@@ -15,16 +15,19 @@ import { CONFIG, ELEMENTS, ARCHETYPES } from './config.js';
 import { S } from './state.js';
 import { mulberry32, hashStr, pick } from './rng.js';
 import { nextCreatureId, speciesName, speciesSignature } from './creature.js';
+import { rollTraits, fusionMods } from './traits.js';
 
 const F = CONFIG.fusion;
 const R = CONFIG.rarity;
 
-/** Cost of fusing these two parents: scales with combined tier. */
+/** Cost of fusing these two parents: scales with combined tier.
+ *  Fertile-trait parents discount it (see traits.js fusionMods). */
 export function fusionCost(a, b) {
   const t = a.tier + b.tier;
+  const { costMult } = fusionMods(a, b);
   return {
-    coins: F.baseCostCoins + F.costCoinsPerTier * (t - 2),
-    essence: F.baseCostEssence + F.costEssencePerTier * (t - 2),
+    coins: Math.round((F.baseCostCoins + F.costCoinsPerTier * (t - 2)) * costMult),
+    essence: Math.round((F.baseCostEssence + F.costEssencePerTier * (t - 2)) * costMult),
   };
 }
 
@@ -84,8 +87,9 @@ export function computeChild(a, b, childSeed) {
   }
 
   // --- Rarity: floor at higher parent, chance to spike (or slip) ---
+  // Prism Heart parents add to the upgrade chance (traits unlock rare fusions).
   const startIdx = Math.max(R.order.indexOf(a.rarity), R.order.indexOf(b.rarity));
-  const divBonus = R.elementDiversityBonus * (elements.length - 1);
+  const divBonus = R.elementDiversityBonus * (elements.length - 1) + fusionMods(a, b).upgradeBonus;
   let idx = startIdx;
   const roll = rng();
   if (roll < R.doubleUpgradeChance + divBonus / 2) idx += 2;
@@ -116,6 +120,7 @@ export function computeChild(a, b, childSeed) {
     fusedCount: 0,
     mutated, // flavor flag for the reveal UI
   };
+  child.traits = rollTraits(child);
   child.name = speciesName(child);
   return child;
 }

@@ -7,6 +7,7 @@
 
 import { CONFIG, ELEMENTS, ARCHETYPES } from './config.js';
 import { mulberry32, pick, weightedPick, freshSeed } from './rng.js';
+import { rollTraits } from './traits.js';
 
 let idCounter = 0;
 /** Unique-enough runtime id (persisted; counter re-synced on load). */
@@ -74,6 +75,7 @@ export function makeBaseCreature({ element = null, rarity = null, seed = null } 
     bornAt: Date.now(),
     fusedCount: 0,           // times used as a fusion parent (flavor stat)
   };
+  c.traits = rollTraits(c);  // passive traits, deterministic from seed+rarity
   c.name = speciesName(c);
   return c;
 }
