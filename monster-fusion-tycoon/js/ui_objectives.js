@@ -50,6 +50,20 @@ function render(panel) {
     <div class="section">
       <h2>🏆 Milestones <span class="dim">— each pays ${O.milestoneRelics} 🏺 relic (the only source besides forging)</span></h2>
       ${ms}
+    </div>
+    <div class="section">
+      <h2>📜 Keeper's ledger <span class="dim">— lifetime</span></h2>
+      <div class="row" style="gap:22px">
+        ${[
+          ['🧬 Fusions', S.counters.fusions],
+          ['✦ Species', S.counters.discoveries],
+          ['🥚 Eggs', S.counters.eggsBought],
+          ['🪙 Earned', fmt(S.counters.coinsEarned)],
+          ['🫳 Collects', S.counters.collects],
+          ['🏞️ Habitats', S.counters.habitatsBuilt],
+          ['⬆️ Upgrades', S.counters.habitatUpgrades],
+        ].map(([k, v]) => `<span class="dim">${k}: <b class="num" style="color:var(--text)">${v}</b></span>`).join('')}
+      </div>
     </div>`;
 
   panel.querySelectorAll('button[data-daily]').forEach(b =>

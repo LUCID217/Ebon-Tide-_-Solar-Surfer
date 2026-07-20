@@ -6,7 +6,7 @@
 import { CONFIG, ELEMENTS } from './config.js';
 import { S } from './state.js';
 import { fusionMods } from './traits.js';
-import { fusionCost, fusionTimeSec, canFuse, startFusion, tryResolveFusion } from './fusion.js';
+import { fusionCost, fusionTimeSec, canFuse, startFusion, tryResolveFusion, volatilePairCount } from './fusion.js';
 import { spend } from './state.js';
 import {
   registerTab, creatureCard, mountArt, fmt, esc, toast, renderResources,
@@ -144,12 +144,15 @@ function previewHtml(a, b) {
   const nEls = Math.min(pool.length, CONFIG.fusion.maxElements);
   const divBonus = R.elementDiversityBonus * (nEls - 1) + fusionMods(a, b).upgradeBonus;
   const spikePct = Math.round(100 * Math.min(1, R.doubleUpgradeChance + R.upgradeChance + divBonus));
+  const volatile = volatilePairCount(a, b);
+  const mutPct = Math.round(100 * Math.min(1, CONFIG.fusion.mutationChance + volatile * CONFIG.fusion.volatileMutationBonus));
   return `<div class="dim" style="margin-top:6px">
     Offspring: Tier ${tier} · elements drawn from
     ${pool.map(e => ELEMENTS[e]?.icon || '❓').join('')}
-    (${Math.round(CONFIG.fusion.mutationChance * 100)}% mutation chance) ·
+    (${mutPct}% mutation chance) ·
     rarity ≥ <b style="color:${R.colors[R.order[floorIdx]]}">${R.order[floorIdx]}</b>,
-    ~${spikePct}% chance to spike</div>`;
+    ~${spikePct}% chance to spike
+    ${volatile ? `<div class="gold" style="margin-top:3px">⚡ Volatile pairing! Opposing elements — unstable ritual, stat surge ×${(1 + volatile * CONFIG.fusion.volatileStatBonus).toFixed(2)}</div>` : ''}</div>`;
 }
 
 function renderPending(panel) {

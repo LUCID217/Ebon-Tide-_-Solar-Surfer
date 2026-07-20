@@ -49,9 +49,16 @@ export function canFuse(a, b) {
  * Pure function of its inputs — used by resolve, and reusable by future
  * "preview possible outcomes" UI without touching game state.
  */
+/** Count opposing element pairs across the two parents (volatile pairings). */
+export function volatilePairCount(a, b) {
+  const pool = new Set([...a.elements, ...b.elements]);
+  return F.volatilePairs.filter(([x, y]) => pool.has(x) && pool.has(y)).length;
+}
+
 export function computeChild(a, b, childSeed) {
   const rng = mulberry32(childSeed);
   const tier = Math.min(F.maxTier, Math.max(a.tier, b.tier) + 1);
+  const volatile = volatilePairCount(a, b);
 
   // --- Elements: union of parents, trimmed to maxElements by seeded picks ---
   let pool = [...new Set([...a.elements, ...b.elements])];
@@ -67,8 +74,9 @@ export function computeChild(a, b, childSeed) {
     }
   }
   // Mutation: chance to gain an element neither parent has — the open-ended hook.
+  // Volatile (opposing-element) pairings destabilize the ritual: more mutations.
   let mutated = false;
-  if (rng() < F.mutationChance) {
+  if (rng() < F.mutationChance + volatile * F.volatileMutationBonus) {
     const outside = Object.keys(ELEMENTS).filter(e => !pool.includes(e));
     if (outside.length) {
       const gained = pick(rng, outside);
@@ -99,10 +107,11 @@ export function computeChild(a, b, childSeed) {
   const rarity = R.order[idx];
 
   // --- Stats: parent average ± variance, plus flat tier growth ---
+  const volatileMult = 1 + volatile * F.volatileStatBonus; // unstable fusions surge
   const inherit = (sa, sb) => {
     const avg = (sa + sb) / 2;
     const varied = avg * (1 + (rng() * 2 - 1) * F.statVariance);
-    return Math.min(F.statCap, Math.max(1, Math.round(varied * (1 + F.statTierBonus * tier))));
+    return Math.min(F.statCap, Math.max(1, Math.round(varied * (1 + F.statTierBonus * tier) * volatileMult)));
   };
   const stats = {
     power: inherit(a.stats.power, b.stats.power),

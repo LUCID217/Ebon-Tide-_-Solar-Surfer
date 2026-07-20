@@ -27,6 +27,13 @@ export const CONFIG = {
     mutationChance: 0.12,       // chance a fusion gains an element NEITHER parent has (keeps the tree open-ended)
     archetypeShiftChance: 0.22, // chance the child's body archetype differs from both parents
     maxTier: 12,                // creatures at this tier can no longer be fused (endgame trophies)
+
+    // Volatile pairings: fusing OPPOSING elements is unstable — higher
+    // mutation odds and a flat stat surge. Rewards breeding across the
+    // elemental wheel instead of stacking one element forever.
+    volatilePairs: [['fire', 'water'], ['light', 'shadow'], ['earth', 'air']],
+    volatileMutationBonus: 0.25, // added to mutationChance when a pair opposes
+    volatileStatBonus: 0.10,     // ×1.10 to all child stats per opposing pair
   },
 
   // --------------------------------------------------------------------------
