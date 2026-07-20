@@ -3,8 +3,9 @@
 // start the fusion, watch the timer, get the dramatic reveal.
 // ============================================================================
 
-import { ELEMENTS } from './config.js';
+import { CONFIG, ELEMENTS } from './config.js';
 import { S } from './state.js';
+import { fusionMods } from './traits.js';
 import { fusionCost, fusionTimeSec, canFuse, startFusion, tryResolveFusion } from './fusion.js';
 import { spend } from './state.js';
 import {
@@ -56,6 +57,7 @@ function render(panel) {
       costHtml = `Cost: <b class="gold num">${fmt(cost.coins)}</b> 🪙 +
         <b class="num" style="color:#7cc7e8">${fmt(cost.essence)}</b> 💠 ·
         ⏱️ ${Math.round(fusionTimeSec(a, b))}s
+        ${previewHtml(a, b)}
         <div class="dim" style="margin-top:4px">⚠️ Both parents are consumed by the ritual.</div>`;
       fuseBtn = `<button id="btn-fuse" class="primary">🧬 Fuse!</button>`;
     } else {
@@ -125,6 +127,29 @@ function render(panel) {
     toast('The den begins to glow… 🔮');
     saveGame(); renderResources(); render(panel);
   });
+}
+
+/**
+ * Deterministic pre-fusion intel: element pool, child tier, rarity floor and
+ * spike odds. Shows what CAN happen without spoiling what WILL (the sealed
+ * seed decides that).
+ */
+function previewHtml(a, b) {
+  const R = CONFIG.rarity;
+  const pool = [...new Set([...a.elements, ...b.elements])];
+  const tier = Math.min(CONFIG.fusion.maxTier, Math.max(a.tier, b.tier) + 1);
+  const floorIdx = Math.max(R.order.indexOf(a.rarity), R.order.indexOf(b.rarity));
+  // Mirror computeChild's odds: diversity bonus uses the (possibly trimmed)
+  // element count — approximate with the pool size capped at maxElements.
+  const nEls = Math.min(pool.length, CONFIG.fusion.maxElements);
+  const divBonus = R.elementDiversityBonus * (nEls - 1) + fusionMods(a, b).upgradeBonus;
+  const spikePct = Math.round(100 * Math.min(1, R.doubleUpgradeChance + R.upgradeChance + divBonus));
+  return `<div class="dim" style="margin-top:6px">
+    Offspring: Tier ${tier} · elements drawn from
+    ${pool.map(e => ELEMENTS[e]?.icon || '❓').join('')}
+    (${Math.round(CONFIG.fusion.mutationChance * 100)}% mutation chance) ·
+    rarity ≥ <b style="color:${R.colors[R.order[floorIdx]]}">${R.order[floorIdx]}</b>,
+    ~${spikePct}% chance to spike</div>`;
 }
 
 function renderPending(panel) {

@@ -36,7 +36,7 @@ export const CONFIG = {
     tickSeconds: 1,             // simulation granularity
     // Revenue: coins/sec = rarityBase * (power/100) * happinessMult * habitatQualityMult * traits
     rarityRevenuePerSec: {      // base coins/sec by rarity (before all multipliers)
-      common: 0.6, uncommon: 1.5, rare: 4, epic: 10, legendary: 26, mythic: 70,
+      common: 1.0, uncommon: 2.5, rare: 6.5, epic: 16, legendary: 42, mythic: 110,
     },
     // Maintenance: coins/sec drained per creature. Scales super-linearly with
     // rarity so top creatures are only worth keeping if well-managed.
@@ -44,7 +44,7 @@ export const CONFIG = {
       common: 0.1, uncommon: 0.4, rare: 1.6, epic: 5, legendary: 16, mythic: 50,
     },
     vitalityMaintDiscount: 0.5, // at vitality 100, maintenance is reduced by up to 50%
-    happinessRevenueCurve: 1.6, // revenueMult = (happiness/100)^this — unhappy creatures crater fast
+    happinessRevenueCurve: 1.3, // revenueMult = (happiness/100)^this — unhappy creatures crater fast
     unhappyThreshold: 35,       // below this happiness, a creature earns NOTHING (still costs maintenance!)
 
     // Happiness drivers (recomputed continuously, 0..100):
@@ -56,7 +56,7 @@ export const CONFIG = {
 
     collectCapSeconds: 3600,    // uncollected revenue pool caps at 1 hour of income
     offlineCapSeconds: 7200,    // offline progress simulated up to 2 hours
-    startingCoins: 150,
+    startingCoins: 250,
     startingEssence: 20,
     startingRelics: 0,
     essenceTricklePerCollect: 1, // small essence gain each manual collect (grind loop beyond fusion)
