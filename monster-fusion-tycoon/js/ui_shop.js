@@ -4,7 +4,7 @@
 
 import { CONFIG, ELEMENTS } from './config.js';
 import { S } from './state.js';
-import { eggPrice, buyEgg, sellEssence, buyEssence, breakRelic, forgeRelic, STAFF, hireStaff, staffUnlocked } from './shop.js';
+import { eggPrice, buyEgg, buyRadiantEgg, sellEssence, buyEssence, breakRelic, forgeRelic, STAFF, hireStaff, staffUnlocked } from './shop.js';
 import { registerTab, fmt, esc, toast, renderResources, renderActiveTab } from './ui.js';
 import { rarityColor } from './creature.js';
 import { saveGame } from './save.js';
@@ -18,8 +18,9 @@ function render(panel) {
     <div class="section">
       <h2>🥚 Eggs <span class="dim">— hatch instantly into a tier-1 creature (reserve pen)</span></h2>
       <div class="row">
-        <button id="buy-egg" class="primary">Mystery egg — ${fmt(eggPrice())} 🪙</button>
-        <span class="dim">Price rises with every egg bought (${S.counters.eggsBought} so far).</span>
+        <button id="buy-egg" class="primary">Mystery egg — ${eggPrice() === 0 ? 'FREE (mercy of the merchant)' : fmt(eggPrice()) + ' 🪙'}</button>
+        <button id="buy-radiant" title="Guaranteed rare or better">✨ Radiant egg — ${CONFIG.shop.radiantEggRelics} 🏺</button>
+        <span class="dim">Mystery price rises with every egg bought (${S.counters.eggsBought} so far).</span>
       </div>
       <div class="row" style="margin-top:8px" id="element-eggs">
         ${Object.entries(ELEMENTS).map(([k, e]) =>
@@ -59,6 +60,14 @@ function render(panel) {
     </div>`;
 
   panel.querySelector('#buy-egg').addEventListener('click', () => doEgg(null));
+  panel.querySelector('#buy-radiant').addEventListener('click', () => {
+    const res = buyRadiantEgg();
+    if (!res.ok) return toast(res.why, 'bad');
+    const c = res.creature;
+    toast(`✨ Radiant hatch: <b style="color:${rarityColor(c)}">${esc(c.name)}</b> (${c.rarity})!` +
+      (res.isNew ? ' <span class="gold">✦ New species!</span>' : ''), 'gold');
+    saveGame(); renderResources(); renderActiveTab();
+  });
   panel.querySelector('#element-eggs').querySelectorAll('button[data-el]').forEach(b =>
     b.addEventListener('click', () => doEgg(b.dataset.el)));
 

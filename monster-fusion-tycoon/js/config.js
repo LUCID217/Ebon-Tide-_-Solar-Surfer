@@ -141,6 +141,9 @@ export const CONFIG = {
     essenceCostCoins: 25,       // buy 1 essence for this many coins (worse than selling — intended)
     essencePerRelic: 40,        // break 1 relic into essence
     relicCostEssence: 120,      // trade essence up into 1 relic (steep!)
+    // Radiant egg — a relic sink that guarantees a high-rarity base creature:
+    radiantEggRelics: 1,
+    radiantEggWeights: { common: 0, uncommon: 0, rare: 70, epic: 25, legendary: 5, mythic: 0 },
     // Staff / automation (one-time purchases):
     autoCollectorCost: 1500,    // coins: collects revenue automatically every tick
     groundskeeperCost: 3,       // relics: +10 happiness to ALL creatures, forever

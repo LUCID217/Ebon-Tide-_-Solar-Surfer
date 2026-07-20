@@ -164,6 +164,7 @@ export function happinessOf(c) {
   const fill = creaturesInHabitat(c.habitatId).length / cap;
   hp -= E.happinessCrowdPenalty * Math.max(0, (fill - 0.5) * 2); // penalty ramps in above half-full
   hp += auraOn(c).happiness; // Muse lifts habitat-mates, Tyrant sours them
+  hp += ownMults(c).happiness; // biome-conditional self boosts (Sunborn…)
   return Math.max(0, Math.min(100, Math.round(hp)));
 }
 

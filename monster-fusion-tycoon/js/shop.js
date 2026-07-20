@@ -7,6 +7,7 @@ import { CONFIG } from './config.js';
 import { S, spend } from './state.js';
 import { makeBaseCreature } from './creature.js';
 import { registerDiscovery } from './fusion.js';
+import { mulberry32, weightedPick, freshSeed } from './rng.js';
 
 const SH = CONFIG.shop;
 
@@ -23,6 +24,17 @@ export function buyEgg(element = null) {
   if (!spend({ coins: eggPrice() })) return { ok: false, why: 'Not enough coins.' };
   S.counters.eggsBought++;
   const c = makeBaseCreature({ element });
+  S.creatures[c.id] = c;
+  const isNew = registerDiscovery(c);
+  return { ok: true, creature: c, isNew };
+}
+
+/** Radiant egg: pay relics, guaranteed rare+ hatch (weights in CONFIG.shop). */
+export function buyRadiantEgg() {
+  if (!spend({ relics: SH.radiantEggRelics })) return { ok: false, why: 'Not enough relics.' };
+  const rng = mulberry32(freshSeed());
+  const rarity = weightedPick(rng, SH.radiantEggWeights);
+  const c = makeBaseCreature({ rarity });
   S.creatures[c.id] = c;
   const isNew = registerDiscovery(c);
   return { ok: true, creature: c, isNew };

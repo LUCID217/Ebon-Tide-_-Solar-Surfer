@@ -25,6 +25,10 @@ export const TRAITS = {
   muse:       { boon: true,  icon: '🎶', name: 'Muse',        desc: '+15 happiness to habitat-mates.',            habitatHappiness: 15 },
   prismHeart: { boon: true,  icon: '💎', name: 'Prism Heart', desc: '+15% rarity-upgrade chance as a parent.',    fusionUpgradeBonus: 0.15 },
   fertile:    { boon: true,  icon: '🌱', name: 'Fertile',     desc: '−30% fusion cost as a parent.',              fusionCostMult: 0.7 },
+  // Biome-conditional boons (`biome` = active only while housed in that biome):
+  nightbloom: { boon: true,  icon: '🌺', name: 'Nightbloom',  desc: '×1.6 own revenue in a Shadow habitat.',      biome: 'shadow', ownRevenueMult: 1.6 },
+  sunborn:    { boon: true,  icon: '🌞', name: 'Sunborn',     desc: '+20 happiness in a Light habitat.',          biome: 'light', ownHappiness: 20 },
+  tidebound:  { boon: true,  icon: '🌊', name: 'Tidebound',   desc: '−50% own upkeep in a Water habitat.',        biome: 'water', ownMaintMult: 0.5 },
   // --- Burdens ---
   ravenous:   { boon: false, icon: '🍖', name: 'Ravenous',    desc: '×1.8 own maintenance.',                      ownMaintMult: 1.8 },
   tyrant:     { boon: false, icon: '👑', name: 'Tyrant',      desc: '−12 happiness to habitat-mates, +30% own revenue.', habitatHappiness: -12, ownRevenueMult: 1.3 },
@@ -56,16 +60,26 @@ export function traitsOf(c) {
   return (c.traits || []).map(k => TRAITS[k]).filter(Boolean);
 }
 
+/** Traits whose conditions currently hold (biome-locked traits need a match). */
+export function activeTraitsOf(c) {
+  return traitsOf(c).filter(t => {
+    if (!t.biome) return true;
+    const h = c.habitatId !== null ? S.habitats[c.habitatId] : null;
+    return h?.biome === t.biome;
+  });
+}
+
 // --- Aggregated effect queries (the only API economy/fusion should use) ------
 
-/** Own multipliers from the creature's own traits: { revenue, maint }. */
+/** Own multipliers from the creature's own ACTIVE traits: { revenue, maint, happiness }. */
 export function ownMults(c) {
-  let revenue = 1, maint = 1;
-  for (const t of traitsOf(c)) {
+  let revenue = 1, maint = 1, happiness = 0;
+  for (const t of activeTraitsOf(c)) {
     revenue *= t.ownRevenueMult ?? 1;
     maint *= t.ownMaintMult ?? 1;
+    happiness += t.ownHappiness ?? 0;
   }
-  return { revenue, maint };
+  return { revenue, maint, happiness };
 }
 
 /**
@@ -77,7 +91,7 @@ export function auraOn(c) {
   if (c.habitatId === null) return { revenueMult, happiness };
   for (const mate of creaturesInHabitat(c.habitatId)) {
     if (mate.id === c.id) continue;
-    for (const t of traitsOf(mate)) {
+    for (const t of activeTraitsOf(mate)) {
       revenueMult *= t.habitatRevenueMult ?? 1;
       happiness += t.habitatHappiness ?? 0;
     }
