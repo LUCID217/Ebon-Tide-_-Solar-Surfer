@@ -9,7 +9,7 @@ import { S, creaturesInHabitat, reserveCreatures, habitatCapacity } from './stat
 import {
   totalPerSec, collectRevenue, upgradeCost, upgradeHabitat, addDecoration,
   habitatQualityMult, placeCreature, buyHabitat, nextHabitatCost,
-  themedExhibitElement, sellValue, sellCreature,
+  themedExhibitElement, sellValue, sellCreature, rebiomeCost, rebiomeHabitat,
 } from './economy.js';
 import {
   registerTab, creatureCard, fmt, fmtSigned, esc, toast,
@@ -99,6 +99,11 @@ function habitatHtml(h) {
     ? `<button class="hb-upgrade" data-h="${h.id}">⬆️ Lv.${h.level + 1} — ${fmt(upgradeCost(h))} 🪙</button>` : '<span class="dim">Max level</span>';
   const dec = h.decorations < CONFIG.habitats.maxDecorations
     ? `<button class="hb-decor" data-h="${h.id}">🌸 Decorate — ${fmt(CONFIG.habitats.decorationCost)} 🪙</button>` : '';
+  const rebiome = `<select class="hb-rebiome" data-h="${h.id}" title="Convert biome — ${fmt(rebiomeCost(h))} 🪙 (keeps upgrades)">
+    <option value="">🔁 biome…</option>
+    ${CONFIG.habitats.biomes.filter(b => b !== h.biome).map(b =>
+      `<option value="${b}">${ELEMENTS[b]?.icon || '🌾'} ${b} — ${fmt(rebiomeCost(h))} 🪙</option>`).join('')}
+  </select>`;
   return `
     <div class="habitat" style="--biome:${biomeCol}" data-habitat="${h.id}">
       <div class="habitat-head">
@@ -109,7 +114,7 @@ function habitatHtml(h) {
           ? `<span class="gold" title="All residents share an element: +${Math.round(CONFIG.habitats.themedExhibitBonus * 100)}% habitat revenue">
               ${ELEMENTS[themedExhibitElement(h.id)]?.icon || ''} themed exhibit!</span>` : ''}
         <span style="flex:1"></span>
-        ${up} ${dec}
+        ${up} ${dec} ${rebiome}
       </div>
       <div class="habitat-slots"></div>
     </div>`;
@@ -138,6 +143,15 @@ function wireHabitat(panel, h) {
     const res = addDecoration(h);
     if (!res.ok) return toast(res.why, 'bad');
     toast(`Decoration added to ${esc(h.name)} 🌸`);
+    saveGame(); renderResources();
+  });
+  root.querySelector('.hb-rebiome')?.addEventListener('change', e => {
+    const biome = e.target.value;
+    if (!biome) return;
+    e.target.value = '';
+    const res = rebiomeHabitat(h, biome);
+    if (!res.ok) return toast(res.why, 'bad');
+    toast(`Converted to ${esc(h.name)} ${ELEMENTS[biome]?.icon || ''}`);
     saveGame(); renderResources();
   });
 }

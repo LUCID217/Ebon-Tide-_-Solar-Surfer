@@ -118,6 +118,7 @@ export const CONFIG = {
     maxDecorations: 5,          // decoration slots per habitat
     decorationCost: 120,        // coins per decoration (each adds economy.happinessDecorPer happiness)
     themedExhibitBonus: 0.25,   // +25% habitat revenue when 2+ residents all share an element
+    rebiomeCostPerLevel: 150,   // coins per habitat level to convert its biome (keeps upgrades)
     // Biomes a habitat can be built as. 'meadow' is neutral (no element match bonus).
     biomes: ['meadow', 'fire', 'water', 'earth', 'air', 'nature', 'shadow', 'light', 'storm'],
   },

@@ -77,6 +77,20 @@ export function upgradeHabitat(h) {
   return { ok: true };
 }
 
+/** Convert a habitat's biome (keeps level/decorations). Cost scales with level. */
+export function rebiomeCost(h) {
+  return H.rebiomeCostPerLevel * h.level;
+}
+
+export function rebiomeHabitat(h, biome) {
+  if (!H.biomes.includes(biome)) return { ok: false, why: 'Unknown biome.' };
+  if (biome === h.biome) return { ok: false, why: 'Already that biome.' };
+  if (!spend({ coins: rebiomeCost(h) })) return { ok: false, why: 'Not enough coins.' };
+  h.biome = biome;
+  h.name = BIOME_NAMES[biome] || biome;
+  return { ok: true };
+}
+
 export function addDecoration(h) {
   if (h.decorations >= H.maxDecorations) return { ok: false, why: 'No decoration slots left.' };
   if (!spend({ coins: H.decorationCost })) return { ok: false, why: 'Not enough coins.' };

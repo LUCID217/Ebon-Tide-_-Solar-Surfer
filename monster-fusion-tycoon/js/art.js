@@ -78,6 +78,42 @@ function drawCreatureSVG(c) {
 
   parts.push(bodyFor(c.archetype, rng, gid, primary, secondary));
 
+  // Coat pattern — spots or stripes, seed-chosen, clipped near the body mass.
+  const patternRoll = rng();
+  const clipId = `cl${c.seed.toString(36)}`;
+  if (patternRoll < 0.55) {
+    parts.push(`<clipPath id="${clipId}"><ellipse cx="50" cy="55" rx="28" ry="26"/></clipPath>`);
+    const patCol = tertiary === primary ? darks[0] : tertiary;
+    if (patternRoll < 0.28) {
+      // Spots
+      let spots = '';
+      const n = 3 + Math.floor(rng() * 4);
+      for (let i = 0; i < n; i++) {
+        spots += `<circle cx="${(30 + rng() * 40).toFixed(1)}" cy="${(40 + rng() * 30).toFixed(1)}" r="${(2 + rng() * 3).toFixed(1)}" fill="${patCol}" opacity="0.5"/>`;
+      }
+      parts.push(`<g clip-path="url(#${clipId})">${spots}</g>`);
+    } else {
+      // Stripes
+      let stripes = '';
+      const n = 2 + Math.floor(rng() * 3);
+      for (let i = 0; i < n; i++) {
+        const x = 34 + i * (30 / n) + rng() * 4;
+        stripes += `<rect x="${x.toFixed(1)}" y="30" width="3.5" height="50" fill="${patCol}" opacity="0.4" transform="rotate(${jitter(12, 18).toFixed(0)} ${x.toFixed(1)} 55)"/>`;
+      }
+      parts.push(`<g clip-path="url(#${clipId})">${stripes}</g>`);
+    }
+  }
+
+  // Legendary+ get orbiting sparkles on top of the aura.
+  if (c.rarity === 'legendary' || c.rarity === 'mythic') {
+    const n = c.rarity === 'mythic' ? 6 : 4;
+    for (let i = 0; i < n; i++) {
+      const ang = (i / n) * Math.PI * 2 + rng();
+      const sx = 50 + Math.cos(ang) * 42, sy = 52 + Math.sin(ang) * 40;
+      parts.push(`<path d="M${sx.toFixed(1)} ${(sy - 2.4).toFixed(1)} l1.4 2.4 -1.4 2.4 -1.4 -2.4 Z" fill="${primary}" opacity="0.9"/>`);
+    }
+  }
+
   // Eyes — count varies by seed (1..3), glow color from last element.
   const eyeCol = darks[darks.length - 1];
   const eyes = 1 + Math.floor(rng() * 3);
