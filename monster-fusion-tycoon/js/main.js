@@ -8,7 +8,7 @@ import { CONFIG } from './config.js';
 import { S } from './state.js';
 import { loadGame, saveGame, wipeSave } from './save.js';
 import { makeBaseCreature } from './creature.js';
-import { ensureStarterHabitat, applyOfflineProgress, economyTick, placeCreature } from './economy.js';
+import { ensureStarterHabitat, applyOfflineProgress, economyTick, placeCreature, totalPerSec } from './economy.js';
 import { tryResolveFusion, registerDiscovery } from './fusion.js';
 import {
   wireTabs, wireModal, switchTab, renderActiveTab, renderResources, toast, fmt,
@@ -92,6 +92,7 @@ function boot() {
 
 let lastTick = Date.now();
 let autosaveAcc = 0;
+let lastBrokeWarn = 0; // throttle the bankruptcy warning toast
 
 function startLoop() {
   setInterval(() => {
@@ -100,6 +101,15 @@ function startLoop() {
     lastTick = now;
 
     economyTick(dt);
+
+    // Broke + still paying upkeep? Nudge the keeper toward the fix.
+    if (S.resources.coins <= 0 && Date.now() - lastBrokeWarn > 60000) {
+      const { maintenance } = totalPerSec();
+      if (maintenance > 0) {
+        lastBrokeWarn = Date.now();
+        toast('💸 The treasury is empty and upkeep looms! Collect revenue, sell a money-pit, or improve happiness.', 'bad');
+      }
+    }
 
     // Resolve a finished fusion (deterministic + local; art loads after).
     const child = tryResolveFusion();

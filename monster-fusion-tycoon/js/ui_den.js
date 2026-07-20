@@ -157,7 +157,8 @@ function previewHtml(a, b) {
 
 function renderPending(panel) {
   const p = S.pendingFusion;
-  const total = p.resolveAt - (p.startedAt ?? (p.startedAt = p.resolveAt - remainingGuess(p)));
+  // startedAt is persisted by startFusion; fall back for saves from before it was.
+  const total = p.resolveAt - (p.startedAt ?? (p.startedAt = Date.now()));
   const remaining = Math.max(0, p.resolveAt - Date.now());
   const pct = total > 0 ? 100 * (1 - remaining / total) : 100;
   panel.innerHTML = `
@@ -180,8 +181,6 @@ function revealHtml(c) {
       <div class="dim">Tier ${c.tier} · ${c.rarity}${c.mutated ? ' · <span class="gold">⚡ unexpected mutation!</span>' : ''}</div>
     </div>`;
 }
-
-function remainingGuess(p) { return Math.max(1000, p.resolveAt - Date.now()); }
 
 /** Called from the main loop when a fusion resolves, so any tab can toast it. */
 export function onFusionResolved(child, isNewSpecies) {

@@ -21,6 +21,9 @@ Vanilla HTML + CSS + JS (ES modules). All persistence is `localStorage`.
   resolve. Parents are consumed. Element sets merge open-endedly (union +
   mutation chance), rarity can spike, stats inherit with variance. The outcome
   is sealed the moment you press Fuse (seeded RNG — no save-scumming).
+  **Volatile pairings**: fusing opposing elements (🔥/💧, ✨/🌑, ⛰️/🌪️) raises
+  mutation odds and surges stats. The den previews element pool, mutation %,
+  and rarity odds before you commit.
 - **Menagerie** — creatures live in biome habitats you build, upgrade, and
   decorate. They earn passively, scaled by rarity, happiness, habitat quality,
   and traits. **Maintenance is always charged**, even for unhappy or unplaced
@@ -29,8 +32,10 @@ Vanilla HTML + CSS + JS (ES modules). All persistence is `localStorage`.
   perks) *and* burdens (Ravenous upkeep, Tyrant sourness). Legendary+ always
   has a burden: the strongest creature in the game is net-negative if you just
   hoard it.
-- **Shop** — eggs (price creeps up), lossy resource exchange
-  (coins ⇄ essence ⇄ relics), and permanent staff hires.
+- **Shop** — eggs (price creeps up; free when you're down to <2 creatures — the
+  anti-softlock mercy rule), lossy resource exchange (coins ⇄ essence ⇄ relics),
+  and permanent staff hires gated behind progression. Habitats can be upgraded,
+  decorated, re-biomed, and expanded; creatures can be sold/retired for coins.
 - **Collection** — an open-ended Pokédex of every species signature ever
   created. Fusion makes the space effectively unbounded.
 - **Objectives** — date-seeded dailies + lifetime milestones. Milestones are
@@ -123,14 +128,15 @@ loads.
 
 ## Save schema
 
-- Key: `mft_save`; current **schemaVersion: 2**.
 - The save is the whole state object from `state.js` (resources, creatures,
   habitats, pending fusion, discovery log, upgrades, counters, objectives,
   `lastSeen` for offline progress).
+- Key: `mft_save`; current **schemaVersion: 3**.
 - Migrations live in `save.js` (`MIGRATIONS[fromVersion]`), run forward one
   version at a time on load. v1→v2 backfilled creature `traits` (rolled
   deterministically from each creature's seed, so migrated saves match fresh
-  rolls). Unknown/newer versions fall back to a fresh game instead of crashing.
+  rolls); v2→v3 added the discovery/upgrade lifetime counters. Unknown/newer
+  versions fall back to a fresh game instead of crashing.
 
 ## Share-string format
 

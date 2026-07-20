@@ -154,6 +154,7 @@ export function startFusion(aId, bId, spendFn) {
   S.counters.fusions++;
   S.pendingFusion = {
     parentSnapshotA: a, parentSnapshotB: b, // full snapshots: parents leave the roster now
+    startedAt: Date.now(),                  // persisted: progress bar survives reloads
     resolveAt: Date.now() + fusionTimeSec(a, b) * 1000,
     childSeed: seed,
   };

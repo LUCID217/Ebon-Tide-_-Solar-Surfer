@@ -59,7 +59,10 @@ function render(panel) {
   const reserve = reserveCreatures();
   html += `
     <div class="section">
-      <h2>🎒 Reserve pen <span class="dim">(${reserve.length}) — creatures here earn nothing but still cost upkeep</span></h2>
+      <div class="row spread">
+        <h2 style="margin:0">🎒 Reserve pen <span class="dim">(${reserve.length}) — creatures here earn nothing but still cost upkeep</span></h2>
+        ${reserve.length ? '<button id="btn-autoplace" title="Fill habitat slots, preferring element matches">🪄 Auto-place</button>' : ''}
+      </div>
       <div class="card-grid" id="reserve-grid">
         ${reserve.length === 0 ? '<div class="dim">Empty. Hatch eggs in the Shop or fuse in the Breeding Den.</div>' : ''}
       </div>
@@ -85,6 +88,21 @@ function render(panel) {
       toast(`Built <b>${esc(res.habitat.name)}</b>!`);
       saveGame(); renderResources(); render(panel);
     }));
+
+  // -- wire: auto-place (element-matching habitats first, then any open slot)
+  panel.querySelector('#btn-autoplace')?.addEventListener('click', () => {
+    let moved = 0;
+    for (const c of reserveCreatures()) {
+      const open = S.habitatOrder
+        .map(hid => S.habitats[hid])
+        .filter(h => creaturesInHabitat(h.id).length < habitatCapacity(h));
+      const match = open.find(h => c.elements.includes(h.biome));
+      const target = match || open[0];
+      if (target && placeCreature(c, target.id).ok) moved++;
+    }
+    toast(moved ? `🪄 Placed ${moved} creature${moved > 1 ? 's' : ''}.` : 'No open habitat slots.', moved ? '' : 'bad');
+    if (moved) { saveGame(); render(panel); }
+  });
 
   // -- wire: reserve creatures
   const grid = panel.querySelector('#reserve-grid');
