@@ -20,6 +20,7 @@ import { onFusionResolved } from './ui_den.js';
 import './ui_shop.js';
 import './ui_collection.js';
 import { updateBadge } from './ui_objectives.js';
+import { handleShareHash } from './ui_share.js';
 
 // --- New-game setup ----------------------------------------------------------
 
@@ -81,6 +82,7 @@ function boot() {
   switchTab('menagerie');
   startLoop();
   saveGame();
+  handleShareHash(); // a #c=… share URL opens the import viewer
 }
 
 // --- The loop ----------------------------------------------------------------

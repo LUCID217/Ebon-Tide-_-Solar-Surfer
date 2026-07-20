@@ -15,6 +15,7 @@ import {
   showCreatureModal, closeModal, renderResources,
 } from './ui.js';
 import { saveGame } from './save.js';
+import { showShareModal } from './ui_share.js';
 
 registerTab('menagerie', render);
 
@@ -152,6 +153,7 @@ function openCreature(c) {
         <option value="" ${c.habitatId === null ? 'selected' : ''}>🎒 Reserve pen</option>
         ${options}
       </select>
+      <button id="btn-share" class="ghost" title="Export as a share string">📤 Share</button>
       <button id="btn-release" class="ghost bad" title="Release this creature forever">🕊️ Release</button>
     </div>
     <div class="dim" style="margin-top:6px">Tip: creatures are happiest in habitats matching their element.</div>`;
@@ -163,6 +165,7 @@ function openCreature(c) {
       toast(target ? `${esc(c.name)} moved in.` : `${esc(c.name)} sent to reserve.`);
       saveGame(); closeModal();
     });
+    m.querySelector('#btn-share').addEventListener('click', () => showShareModal(c));
     m.querySelector('#btn-release').addEventListener('click', () => {
       delete S.creatures[c.id];
       toast(`${esc(c.name)} released into the wild. 🕊️`);

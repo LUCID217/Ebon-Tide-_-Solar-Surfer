@@ -8,6 +8,7 @@
 import { CONFIG, ELEMENTS } from './config.js';
 import { S } from './state.js';
 import { registerTab, mountArt, esc } from './ui.js';
+import { tryImportString } from './ui_share.js';
 
 registerTab('collection', render);
 
@@ -31,9 +32,20 @@ function render(panel) {
       </div>
       <div>${rarityLine}</div>
     </div>
+    <div class="section">
+      <h3>📥 Import a shared creature</h3>
+      <div class="row">
+        <input type="text" id="import-box" placeholder="Paste an MFT1.… share string or URL" style="flex:1;min-width:200px">
+        <button id="import-btn" class="primary">View</button>
+      </div>
+    </div>
     <div class="log-grid" id="log-grid">
       ${entries.length === 0 ? '<div class="dim section">Nothing discovered yet.</div>' : ''}
     </div>`;
+
+  const doImport = () => tryImportString(panel.querySelector('#import-box').value);
+  panel.querySelector('#import-btn').addEventListener('click', doImport);
+  panel.querySelector('#import-box').addEventListener('keydown', e => { if (e.key === 'Enter') doImport(); });
 
   const grid = panel.querySelector('#log-grid');
   for (const [sig, e] of entries) {
