@@ -4,7 +4,7 @@
 
 import { CONFIG, ELEMENTS } from './config.js';
 import { S } from './state.js';
-import { eggPrice, buyEgg, sellEssence, buyEssence, breakRelic, forgeRelic, STAFF, hireStaff } from './shop.js';
+import { eggPrice, buyEgg, sellEssence, buyEssence, breakRelic, forgeRelic, STAFF, hireStaff, staffUnlocked } from './shop.js';
 import { registerTab, fmt, esc, toast, renderResources, renderActiveTab } from './ui.js';
 import { rarityColor } from './creature.js';
 import { saveGame } from './save.js';
@@ -42,14 +42,19 @@ function render(panel) {
     <div class="section">
       <h2>🧑‍🤝‍🧑 Staff & automation <span class="dim">— one-time hires, permanent effects</span></h2>
       <div class="shop-grid">
-        ${STAFF.map(s => `
-          <div class="shop-item">
-            <h3>${s.name}</h3>
-            <div class="desc">${s.desc}</div>
+        ${STAFF.map(s => {
+          const locked = !staffUnlocked(s);
+          return `
+          <div class="shop-item" ${locked ? 'style="opacity:.65"' : ''}>
+            <h3>${locked ? '🔒' : ''} ${s.name}</h3>
+            <div class="desc">${locked ? `Unlocks when you: <b>${s.unlock.label}</b> (${S.counters[s.unlock.counter] || 0}/${s.unlock.at})` : s.desc}</div>
             ${S.upgrades[s.key]
               ? '<button disabled>✅ Hired</button>'
-              : `<button data-staff="${s.key}">Hire — ${costLabel(s.cost)}</button>`}
-          </div>`).join('')}
+              : locked
+                ? '<button disabled>🔒 Locked</button>'
+                : `<button data-staff="${s.key}">Hire — ${costLabel(s.cost)}</button>`}
+          </div>`;
+        }).join('')}
       </div>
     </div>`;
 

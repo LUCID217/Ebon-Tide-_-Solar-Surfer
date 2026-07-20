@@ -17,6 +17,8 @@ const DAILY_POOL = [
   { kind: 'collect',  label: n => `Collect revenue ${n} times`,                     targets: [3, 5, 10], counter: 'collects' },
   { kind: 'egg',      label: n => `Hatch ${n} shop egg${n > 1 ? 's' : ''}`,         targets: [1, 2, 3], counter: 'eggsBought' },
   { kind: 'earn',     label: n => `Earn ${n.toLocaleString()} coins`,               targets: [500, 2000, 8000], counter: 'coinsEarned' },
+  { kind: 'discover', label: n => `Discover ${n} new species`,                      targets: [1, 2, 3], counter: 'discoveries' },
+  { kind: 'upgrade',  label: n => `Upgrade habitats ${n} time${n > 1 ? 's' : ''}`,  targets: [1, 2, 3], counter: 'habitatUpgrades' },
 ];
 
 function todayStr() {

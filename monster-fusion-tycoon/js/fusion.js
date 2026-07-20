@@ -182,5 +182,6 @@ export function registerDiscovery(c) {
   };
   // New species pay an essence bounty — exploration feeds the breeding loop.
   S.resources.essence += CONFIG.economy.discoveryEssenceBonus;
+  S.counters.discoveries++;
   return true; // new discovery!
 }

@@ -33,6 +33,8 @@ export function freshState() {
       collects: 0,
       habitatsBuilt: 1,
       creatureId: 1,
+      discoveries: 0,     // new species logged (v3+)
+      habitatUpgrades: 0, // habitat level-ups bought (v3+)
     },
     objectives: {
       dailyDate: null,    // 'YYYY-MM-DD' the current dailies were rolled for

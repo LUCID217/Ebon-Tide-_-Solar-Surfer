@@ -34,7 +34,7 @@ export function renderActiveTab() {
   // Don't clobber a text field the player is typing in (import box, etc.) —
   // the periodic tick re-render would wipe their input mid-keystroke.
   const ae = document.activeElement;
-  if (ae && panel.contains(ae) && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) return;
+  if (ae && panel.contains(ae) && ['INPUT', 'TEXTAREA', 'SELECT'].includes(ae.tagName)) return;
   const fn = tabRenderers[activeTab];
   if (fn) fn(panel);
   else panel.innerHTML = `<div class="section dim">🚧 Under construction.</div>`;

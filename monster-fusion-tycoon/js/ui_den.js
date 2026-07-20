@@ -3,6 +3,7 @@
 // start the fusion, watch the timer, get the dramatic reveal.
 // ============================================================================
 
+import { ELEMENTS } from './config.js';
 import { S } from './state.js';
 import { fusionCost, fusionTimeSec, canFuse, startFusion, tryResolveFusion } from './fusion.js';
 import { spend } from './state.js';
@@ -17,12 +18,28 @@ registerTab('den', render);
 // Den-local selection state (not saved — it's just UI).
 let pickA = null, pickB = null;
 let lastRevealId = null; // creature id to show a one-time reveal animation for
+let sortBy = 'newest';   // roster sort: newest | tier | rarity | power
+let filterEl = '';       // roster element filter ('' = all)
+
+const RARITY_ORDER = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'];
+
+function sortedRoster() {
+  let list = Object.values(S.creatures);
+  if (filterEl) list = list.filter(c => c.elements.includes(filterEl));
+  const cmp = {
+    newest: (a, b) => b.bornAt - a.bornAt,
+    tier: (a, b) => b.tier - a.tier,
+    rarity: (a, b) => RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity),
+    power: (a, b) => b.stats.power - a.stats.power,
+  }[sortBy];
+  return list.sort(cmp);
+}
 
 function render(panel) {
   // A fusion in progress owns the whole stage.
   if (S.pendingFusion) return renderPending(panel);
 
-  const roster = Object.values(S.creatures);
+  const roster = sortedRoster();
   // Drop stale picks (parent may have been consumed/released).
   if (pickA && !S.creatures[pickA]) pickA = null;
   if (pickB && !S.creatures[pickB]) pickB = null;
@@ -58,8 +75,21 @@ function render(panel) {
       <div style="text-align:center">${costHtml}<div style="margin-top:10px">${fuseBtn}</div></div>
     </div>
     <div class="section">
-      <h3>Choose parents <span class="dim">(${roster.length} creatures)</span></h3>
-      <div class="card-grid" id="den-roster">
+      <div class="row spread">
+        <h3 style="margin:0">Choose parents <span class="dim">(${roster.length} creatures)</span></h3>
+        <div class="row">
+          <select id="den-sort" title="Sort roster">
+            ${['newest', 'tier', 'rarity', 'power'].map(k =>
+              `<option value="${k}" ${sortBy === k ? 'selected' : ''}>Sort: ${k}</option>`).join('')}
+          </select>
+          <select id="den-filter" title="Filter by element">
+            <option value="">All elements</option>
+            ${Object.entries(ELEMENTS).map(([k, e]) =>
+              `<option value="${k}" ${filterEl === k ? 'selected' : ''}>${e.icon} ${e.label}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="card-grid" id="den-roster" style="margin-top:10px">
         ${roster.length < 2 ? '<div class="dim">You need at least two creatures — hatch eggs in the Shop.</div>' : ''}
       </div>
     </div>`;
@@ -83,6 +113,9 @@ function render(panel) {
       },
     }));
   }
+
+  panel.querySelector('#den-sort').addEventListener('change', e => { sortBy = e.target.value; render(panel); });
+  panel.querySelector('#den-filter').addEventListener('change', e => { filterEl = e.target.value; render(panel); });
 
   panel.querySelector('#btn-fuse')?.addEventListener('click', () => {
     const res = startFusion(pickA, pickB, spend);

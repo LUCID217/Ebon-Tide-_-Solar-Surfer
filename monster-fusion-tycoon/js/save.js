@@ -22,6 +22,13 @@ const MIGRATIONS = {
     save.version = 2;
     return save;
   },
+  // v2 -> v3: new lifetime counters for the discover/upgrade daily objectives.
+  2: (save) => {
+    save.counters.discoveries = Object.keys(save.discovered || {}).length;
+    save.counters.habitatUpgrades = 0; // history unknown; count from here
+    save.version = 3;
+    return save;
+  },
 };
 
 /** True if localStorage is actually usable (private mode / quota can kill it). */

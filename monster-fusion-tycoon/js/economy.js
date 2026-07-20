@@ -73,6 +73,7 @@ export function upgradeHabitat(h) {
   if (h.level >= H.maxLevel) return { ok: false, why: 'Already at max level.' };
   if (!spend({ coins: upgradeCost(h) })) return { ok: false, why: 'Not enough coins.' };
   h.level++;
+  S.counters.habitatUpgrades++;
   return { ok: true };
 }
 
