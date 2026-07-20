@@ -71,6 +71,8 @@ export function milestoneList() {
     { key: 'fusion', label: 'Total fusions', value: S.counters.fusions, steps: O.fusionMilestones },
     { key: 'discovery', label: 'Species discovered', value: Object.keys(S.discovered).length, steps: O.discoveryMilestones },
     { key: 'coins', label: 'Lifetime coins earned', value: Math.floor(S.counters.coinsEarned), steps: O.coinMilestones },
+    { key: 'eggs', label: 'Eggs hatched', value: S.counters.eggsBought, steps: O.eggMilestones },
+    { key: 'habitats', label: 'Habitats built', value: S.counters.habitatsBuilt, steps: O.habitatMilestones },
   ];
   const list = [];
   for (const def of defs) {

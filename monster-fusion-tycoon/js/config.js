@@ -153,6 +153,8 @@ export const CONFIG = {
     fusionMilestones: [1, 5, 15, 40, 100, 250],
     discoveryMilestones: [3, 8, 20, 50, 120],
     coinMilestones: [1000, 10000, 100000, 1000000],
+    eggMilestones: [3, 10, 25, 60],
+    habitatMilestones: [2, 4, 7, 10],
     milestoneRelics: 1,
   },
 

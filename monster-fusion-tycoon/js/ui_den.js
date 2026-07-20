@@ -70,9 +70,9 @@ function render(panel) {
     <div class="section">
       <h2>🥚 Breeding Den</h2>
       <div class="den-stage">
-        <div class="den-slot ${a ? 'filled' : ''}" id="den-a">${a ? '' : 'Parent A'}</div>
+        <div class="den-slot ${a ? 'filled' : ''}" id="den-a">${a ? '' : 'Parent A<br><span style="font-size:.72rem">pick below</span>'}</div>
         <div class="den-x">✕</div>
-        <div class="den-slot ${b ? 'filled' : ''}" id="den-b">${b ? '' : 'Parent B'}</div>
+        <div class="den-slot ${b ? 'filled' : ''}" id="den-b">${b ? '' : 'Parent B<br><span style="font-size:.72rem">pick below</span>'}</div>
       </div>
       <div style="text-align:center">${costHtml}<div style="margin-top:10px">${fuseBtn}</div></div>
     </div>

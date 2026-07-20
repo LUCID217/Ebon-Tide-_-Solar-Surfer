@@ -109,7 +109,7 @@ function habitatHtml(h) {
       <div class="habitat-head">
         <h3>${ELEMENTS[h.biome]?.icon || '🌾'} ${esc(h.name)}</h3>
         <span class="dim">Lv.${h.level} · ×${habitatQualityMult(h).toFixed(2)} quality ·
-          ${residents.length}/${cap} slots · ${'🌸'.repeat(h.decorations)}</span>
+          ${residents.length}/${cap} slots${h.decorations ? ' · ' + '🌸'.repeat(h.decorations) : ''}</span>
         ${themedExhibitElement(h.id)
           ? `<span class="gold" title="All residents share an element: +${Math.round(CONFIG.habitats.themedExhibitBonus * 100)}% habitat revenue">
               ${ELEMENTS[themedExhibitElement(h.id)]?.icon || ''} themed exhibit!</span>` : ''}
