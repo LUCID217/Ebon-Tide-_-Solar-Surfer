@@ -1,0 +1,120 @@
+// ============================================================================
+// main.js — bootstrap + game loop.
+// Order matters: load save → ensure starter content → wire UI shell →
+// import tab modules (they self-register) → start the tick.
+// ============================================================================
+
+import { CONFIG } from './config.js';
+import { S } from './state.js';
+import { loadGame, saveGame, wipeSave } from './save.js';
+import { makeBaseCreature } from './creature.js';
+import { ensureStarterHabitat, applyOfflineProgress, economyTick, placeCreature } from './economy.js';
+import { tryResolveFusion, registerDiscovery } from './fusion.js';
+import {
+  wireTabs, wireModal, switchTab, renderActiveTab, renderResources, toast, fmt,
+} from './ui.js';
+
+// Tab modules self-register with the ui.js registry on import.
+import './ui_menagerie.js';
+import { onFusionResolved } from './ui_den.js';
+
+// --- New-game setup ----------------------------------------------------------
+
+function setupFreshGame() {
+  ensureStarterHabitat();
+  // Three starters: two sharing a habitat, one in reserve — teaches placement.
+  const starters = [
+    makeBaseCreature({ element: 'fire' }),
+    makeBaseCreature({ element: 'nature' }),
+    makeBaseCreature({ element: 'water' }),
+  ];
+  const homeId = S.habitatOrder[0];
+  for (const c of starters) {
+    S.creatures[c.id] = c;
+    registerDiscovery(c);
+  }
+  placeCreature(starters[0], homeId);
+  placeCreature(starters[1], homeId);
+  // starters[2] stays in reserve on purpose.
+}
+
+// --- Boot --------------------------------------------------------------------
+
+function boot() {
+  const offlineSec = loadGame();
+  const isFresh = Object.keys(S.creatures).length === 0 && S.counters.fusions === 0;
+
+  ensureStarterHabitat();
+  if (isFresh) setupFreshGame();
+
+  wireTabs();
+  wireModal();
+
+  // Top-bar buttons.
+  document.getElementById('btn-save').addEventListener('click', () => {
+    toast(saveGame() ? '💾 Saved.' : '⚠️ Save unavailable in this browser.', saveGame() ? '' : 'bad');
+  });
+  document.getElementById('btn-wipe').addEventListener('click', () => {
+    if (!confirm('Wipe your save and start over? This cannot be undone.')) return;
+    wipeSave();
+    setupFreshGame();
+    saveGame();
+    renderResources();
+    switchTab('menagerie');
+    toast('Fresh start. Welcome back, keeper. 🌱');
+  });
+
+  // Offline progress report.
+  if (offlineSec > 5) {
+    const rep = applyOfflineProgress(offlineSec);
+    if (rep) {
+      toast(`⏳ While you were away (${Math.round(rep.seconds / 60)}m): ` +
+        `<b class="gold">+${fmt(rep.earned)}</b> 🪙 accrued, ` +
+        `<b class="bad">−${fmt(rep.drained)}</b> 🪙 upkeep.`, 'gold');
+    }
+  }
+
+  renderResources();
+  switchTab('menagerie');
+  startLoop();
+  saveGame();
+}
+
+// --- The loop ----------------------------------------------------------------
+
+let lastTick = Date.now();
+let autosaveAcc = 0;
+
+function startLoop() {
+  setInterval(() => {
+    const now = Date.now();
+    const dt = Math.min(5, (now - lastTick) / 1000); // clamp huge gaps (tab slept)
+    lastTick = now;
+
+    economyTick(dt);
+
+    // Resolve a finished fusion (deterministic + local; art loads after).
+    const child = tryResolveFusion();
+    if (child) {
+      const isNew = !!S.discovered && S.discovered[`${[...child.elements].sort().join('+')}|${child.archetype}`]?.count === 1;
+      onFusionResolved(child, isNew);
+      saveGame();
+    }
+
+    autosaveAcc += dt;
+    if (autosaveAcc >= CONFIG.save.autosaveSeconds) {
+      autosaveAcc = 0;
+      saveGame();
+    }
+
+    renderResources();
+    renderActiveTab();
+  }, CONFIG.economy.tickSeconds * 1000);
+}
+
+// Save when the tab is hidden/closed — cheap insurance.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') saveGame();
+});
+
+boot();

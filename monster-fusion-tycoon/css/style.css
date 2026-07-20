@@ -1,0 +1,241 @@
+/* ============================================================================
+   Monster Fusion Tycoon — all styling.
+   Dark fantasy menagerie theme. CSS custom properties up top for quick retheme.
+   ========================================================================== */
+
+:root {
+  --bg: #14161d;
+  --bg-panel: #1c1f29;
+  --bg-card: #232734;
+  --bg-card-hover: #2a2f40;
+  --border: #333a4d;
+  --text: #d8dce6;
+  --text-dim: #8b93a5;
+  --accent: #7c6ce8;
+  --good: #4caf7d;
+  --bad: #e05b5b;
+  --gold: #e8c05c;
+  --radius: 10px;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  min-height: 100vh;
+}
+button {
+  font: inherit;
+  color: inherit;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background .12s, border-color .12s, transform .06s;
+}
+button:hover:not(:disabled) { background: var(--bg-card-hover); border-color: var(--accent); }
+button:active:not(:disabled) { transform: scale(.97); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+button.primary:hover:not(:disabled) { background: #8d7ef0; }
+button.ghost { background: transparent; border-color: transparent; }
+button.ghost:hover:not(:disabled) { border-color: var(--border); }
+select, input[type=text], textarea {
+  font: inherit; color: var(--text);
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 10px;
+}
+h1, h2, h3 { margin: 0 0 .4em; }
+h2 { font-size: 1.15rem; }
+h3 { font-size: 1rem; }
+
+/* ---------- Top bar ---------- */
+#topbar {
+  display: flex; align-items: center; gap: 16px;
+  padding: 10px 18px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.logo { font-size: 1.1rem; margin: 0; letter-spacing: .3px; }
+#resource-bar { display: flex; gap: 14px; flex: 1; justify-content: center; flex-wrap: wrap; }
+.res {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 20px; padding: 4px 14px; white-space: nowrap;
+}
+.res b { color: var(--gold); font-variant-numeric: tabular-nums; }
+#res-essence b { color: #7cc7e8; }
+#res-relics b { color: #e88fc7; }
+
+/* ---------- Tabs ---------- */
+#tabs {
+  display: flex; gap: 4px; padding: 8px 18px 0;
+  background: var(--bg-panel); border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+.tab {
+  border-radius: 8px 8px 0 0; border-bottom: none;
+  background: transparent; padding: 8px 16px; white-space: nowrap;
+  color: var(--text-dim);
+}
+.tab.active { background: var(--bg); color: var(--text); border-color: var(--border); font-weight: 600; }
+.tab .badge {
+  background: var(--accent); color: #fff; border-radius: 10px;
+  font-size: .7rem; padding: 1px 6px; margin-left: 4px; vertical-align: middle;
+}
+
+/* ---------- Panels ---------- */
+#main { padding: 18px; max-width: 1200px; margin: 0 auto; }
+.panel { display: none; }
+.panel.active { display: block; animation: fadein .18s ease; }
+@keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
+
+.section {
+  background: var(--bg-panel); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px 16px; margin-bottom: 16px;
+}
+.row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.spread { justify-content: space-between; }
+.dim { color: var(--text-dim); font-size: .87rem; }
+.good { color: var(--good); }
+.bad { color: var(--bad); }
+.gold { color: var(--gold); }
+.num { font-variant-numeric: tabular-nums; }
+
+/* ---------- Creature cards ---------- */
+.card-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+.creature-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 10px; text-align: center;
+  cursor: pointer; position: relative;
+  transition: transform .1s, border-color .12s;
+  border-top: 3px solid var(--rarity, var(--border));
+}
+.creature-card:hover { transform: translateY(-2px); border-color: var(--rarity, var(--accent)); }
+.creature-card.selected { outline: 2px solid var(--accent); outline-offset: 1px; }
+.creature-card .art { width: 84px; height: 84px; margin: 0 auto 6px; }
+.creature-card .art svg { width: 100%; height: 100%; }
+.creature-card .cname { font-size: .82rem; font-weight: 600; line-height: 1.2; min-height: 2.1em; }
+.creature-card .cmeta { font-size: .72rem; color: var(--text-dim); }
+.creature-card .net { font-size: .75rem; margin-top: 3px; }
+.rarity-tag {
+  display: inline-block; font-size: .68rem; text-transform: uppercase;
+  letter-spacing: .5px; font-weight: 700; padding: 1px 7px; border-radius: 8px;
+  background: color-mix(in srgb, var(--rarity) 22%, transparent);
+  color: var(--rarity);
+}
+
+/* ---------- Habitats ---------- */
+.habitat {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 12px 14px; margin-bottom: 14px;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--biome, #444) 12%, var(--bg-panel)), var(--bg-panel));
+}
+.habitat-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.habitat-head h3 { margin: 0; }
+.habitat-slots { display: flex; gap: 10px; flex-wrap: wrap; }
+.slot-empty {
+  width: 150px; min-height: 150px; border: 1px dashed var(--border);
+  border-radius: var(--radius); display: flex; align-items: center; justify-content: center;
+  color: var(--text-dim); font-size: .8rem;
+}
+
+/* ---------- Breeding den ---------- */
+.den-stage {
+  display: flex; align-items: center; justify-content: center; gap: 18px;
+  padding: 18px; flex-wrap: wrap;
+}
+.den-slot {
+  width: 160px; min-height: 180px;
+  border: 2px dashed var(--border); border-radius: var(--radius);
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 6px; color: var(--text-dim);
+}
+.den-slot.filled { border-style: solid; }
+.den-x { font-size: 1.6rem; color: var(--accent); }
+.fusion-progress { text-align: center; padding: 10px; }
+.fusion-bar {
+  height: 10px; border-radius: 5px; background: var(--bg-card);
+  overflow: hidden; margin: 8px auto; max-width: 380px;
+}
+.fusion-bar > div {
+  height: 100%; background: linear-gradient(90deg, var(--accent), #e88fc7);
+  transition: width .3s linear;
+}
+.reveal { animation: reveal .5s ease; }
+@keyframes reveal { from { transform: scale(.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+/* ---------- Shop ---------- */
+.shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.shop-item {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 12px; display: flex;
+  flex-direction: column; gap: 6px;
+}
+.shop-item h3 { margin: 0; font-size: .95rem; }
+.shop-item .desc { font-size: .8rem; color: var(--text-dim); flex: 1; }
+
+/* ---------- Collection log ---------- */
+.log-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.log-entry {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 8px; text-align: center; border-top: 3px solid var(--rarity, var(--border));
+}
+.log-entry .art { width: 64px; height: 64px; margin: 0 auto 4px; }
+.log-entry .art svg { width: 100%; height: 100%; }
+.log-entry .lname { font-size: .75rem; font-weight: 600; }
+.log-entry .lmeta { font-size: .68rem; color: var(--text-dim); }
+
+/* ---------- Objectives ---------- */
+.objective {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 10px 14px; margin-bottom: 8px;
+}
+.objective .obar { flex: 1; height: 8px; border-radius: 4px; background: var(--bg); overflow: hidden; }
+.objective .obar > div { height: 100%; background: var(--good); }
+.objective.done { border-color: var(--good); }
+
+/* ---------- Modal ---------- */
+#modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,.6);
+  display: flex; align-items: center; justify-content: center; z-index: 50;
+}
+#modal-backdrop.hidden { display: none; }
+#modal {
+  background: var(--bg-panel); border: 1px solid var(--border);
+  border-radius: 14px; padding: 20px; max-width: 520px; width: calc(100% - 40px);
+  max-height: 85vh; overflow-y: auto;
+}
+#modal .art-big { width: 140px; height: 140px; margin: 0 auto 8px; }
+#modal .art-big svg { width: 100%; height: 100%; }
+.statbar { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: .85rem; }
+.statbar .track { flex: 1; height: 7px; background: var(--bg); border-radius: 4px; overflow: hidden; }
+.statbar .track > div { height: 100%; background: var(--accent); }
+.statbar .label { width: 66px; color: var(--text-dim); }
+
+/* ---------- Toasts ---------- */
+#toasts {
+  position: fixed; bottom: 18px; right: 18px; z-index: 60;
+  display: flex; flex-direction: column; gap: 8px; align-items: flex-end;
+}
+.toast {
+  background: var(--bg-card); border: 1px solid var(--accent);
+  border-radius: 10px; padding: 10px 16px; max-width: 320px;
+  animation: toastin .25s ease; box-shadow: 0 4px 18px rgba(0,0,0,.4);
+}
+.toast.gold { border-color: var(--gold); }
+.toast.bad { border-color: var(--bad); }
+@keyframes toastin { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; } }
+
+@media (max-width: 640px) {
+  #main { padding: 10px; }
+  .card-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+}
