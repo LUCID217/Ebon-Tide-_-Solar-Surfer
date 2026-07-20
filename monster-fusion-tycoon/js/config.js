@@ -49,8 +49,10 @@ export const CONFIG = {
     // rarity so top creatures are only worth keeping if well-managed.
     // ON-RAMP: commons are FREE to keep — a new player's roster can never
     // bleed them dry. Upkeep is a mechanic you grow into as you fuse upward.
+    // NOTE: creatures housed in a SANCTUARY biome (see habitats.sanctuaryBiomes)
+    // bill NO upkeep at all — the meadow is the safe sandbox.
     rarityMaintenancePerSec: {
-      common: 0, uncommon: 0.25, rare: 1.6, epic: 5, legendary: 16, mythic: 50,
+      common: 0, uncommon: 0.25, rare: 1.2, epic: 4, legendary: 14, mythic: 45,
     },
     vitalityMaintDiscount: 0.5, // at vitality 100, maintenance is reduced by up to 50%
     happinessRevenueCurve: 1.3, // revenueMult = (happiness/100)^this — unhappy creatures crater fast
@@ -105,8 +107,10 @@ export const CONFIG = {
       common: '#9aa5b1', uncommon: '#4caf7d', rare: '#4a90d9',
       epic: '#a45de2', legendary: '#e8a33d', mythic: '#e84d6f',
     },
-    eggWeights: {               // rarity odds when buying a base egg from the shop
-      common: 70, uncommon: 24, rare: 6, epic: 0, legendary: 0, mythic: 0,
+    eggWeights: {               // rarity odds when buying a base egg from the shop.
+      // Commons/uncommons ONLY: eggs are raw material — FUSION is the rarity
+      // engine. A new player must never be handed an upkeep bomb by the shop.
+      common: 75, uncommon: 25, rare: 0, epic: 0, legendary: 0, mythic: 0,
     },
   },
 
@@ -128,6 +132,14 @@ export const CONFIG = {
     decorationCost: 120,        // coins per decoration (each adds economy.happinessDecorPer happiness)
     themedExhibitBonus: 0.25,   // +25% habitat revenue when 2+ residents all share an element
     rebiomeCostPerLevel: 150,   // coins per habitat level to convert its biome (keeps upgrades)
+
+    // SANCTUARIES — the safe sandbox at the heart of the on-ramp.
+    // Creatures housed in these biomes bill ZERO upkeep, so a new player can
+    // buy eggs and fuse freely without ever going broke. The trade-off:
+    // exotic creatures (rare+) only earn a fraction there — serious income
+    // means moving them to elemental habitats and accepting the upkeep bill.
+    sanctuaryBiomes: ['meadow'],
+    sanctuaryExoticRevenueMult: 0.5, // rare+ earn this fraction inside a sanctuary
     // Biomes a habitat can be built as. 'meadow' is neutral (no element match bonus).
     biomes: ['meadow', 'fire', 'water', 'earth', 'air', 'nature', 'shadow', 'light', 'storm'],
   },
@@ -143,8 +155,11 @@ export const CONFIG = {
     essenceCostCoins: 25,       // buy 1 essence for this many coins (worse than selling — intended)
     essencePerRelic: 40,        // break 1 relic into essence
     relicCostEssence: 120,      // trade essence up into 1 relic (steep!)
-    // Radiant egg — a relic sink that guarantees a high-rarity base creature:
+    // Radiant egg — a relic sink that guarantees a high-rarity base creature.
+    // GATED: locked until the player has fused enough to understand upkeep —
+    // early milestone relics must not buy a money-pit on day one.
     radiantEggRelics: 1,
+    radiantEggUnlockFusions: 15,
     radiantEggWeights: { common: 0, uncommon: 0, rare: 70, epic: 25, legendary: 5, mythic: 0 },
     // Staff / automation (one-time purchases):
     autoCollectorCost: 1500,    // coins: collects revenue automatically every tick

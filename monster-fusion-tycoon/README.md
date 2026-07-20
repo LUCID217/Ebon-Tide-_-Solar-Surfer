@@ -26,18 +26,24 @@ Vanilla HTML + CSS + JS (ES modules). All persistence is `localStorage`.
   and rarity odds before you commit.
 - **Menagerie** — creatures live in biome habitats you build, upgrade, and
   decorate. They earn passively, scaled by rarity, happiness, habitat quality,
-  and traits. **Maintenance is always charged**, even for unhappy or unplaced
-  creatures — powerful monsters are a liability unless placed deliberately.
+  and traits. **Meadows are sanctuaries**: residents bill zero upkeep (exotic
+  rare+ creatures earn only 50% there) — the safe sandbox where a new player
+  can buy eggs and fuse without going broke. **Elemental habitats** pay far
+  more via biome-match happiness and theming, but charge maintenance whether
+  or not the creature earns — powerful monsters are a liability unless placed
+  deliberately. A Keeper's Advisor names every money-loser and why.
 - **Traits** — epic+ creatures carry passive boons (auras, multipliers, fusion
   perks) *and* burdens (Ravenous upkeep, Tyrant sourness). Legendary+ always
   has a burden: the strongest creature in the game is net-negative if you just
   hoard it. Some boons are biome-conditional (Nightbloom/Sunborn/Tidebound
   only fire in their matching habitat), tying the trait roll to placement.
   Full list in `traits.js` and the in-game ❓ help.
-- **Shop** — eggs (price creeps up; free when you're down to <2 creatures — the
-  anti-softlock mercy rule), lossy resource exchange (coins ⇄ essence ⇄ relics),
-  and permanent staff hires gated behind progression. Habitats can be upgraded,
-  decorated, re-biomed, and expanded; creatures can be sold/retired for coins.
+- **Shop** — eggs hatch common/uncommon only (fusion is the rarity engine;
+  price creeps up; free when you're down to <2 creatures — the anti-softlock
+  mercy rule), radiant eggs (guaranteed rare+, locked until 15 fusions), lossy
+  resource exchange (coins ⇄ essence ⇄ relics), and permanent staff hires
+  gated behind progression. Habitats can be upgraded, decorated, re-biomed,
+  and expanded; creatures can be sold/retired for coins.
 - **Collection** — an open-ended Pokédex of every species signature ever
   created. Fusion makes the space effectively unbounded.
 - **Objectives** — date-seeded dailies + lifetime milestones. Milestones are

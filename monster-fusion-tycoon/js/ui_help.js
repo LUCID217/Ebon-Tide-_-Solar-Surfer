@@ -12,10 +12,14 @@ export function showHelp() {
     <h2>🧬 How to run a monster menagerie</h2>
     <div style="line-height:1.55">
       <p><b>🏞️ Menagerie</b> — creatures placed in habitats earn coins over time.
-      <b>Collect</b> often (it also trickles 💠 essence). Common creatures are
-      free to keep; from uncommon up, upkeep is charged <i>whether or not they
-      earn</i> — the rarer the monster, the bigger the bill. When coins leak,
-      the 🩺 advisor on the Menagerie tab names the culprit and why.</p>
+      <b>Collect</b> often (it also trickles 💠 essence).</p>
+      <p><b>🕊️ Meadows are sanctuaries</b> — creatures housed there bill
+      <i>no upkeep, ever</i>. Buy eggs, fuse, experiment: your meadow can't
+      bankrupt you. The trade-off: exotic (rare+) creatures only earn half in
+      a sanctuary. Serious income means building <b>elemental habitats</b> —
+      bigger earnings from biome-matched, happy creatures, but rare+ residents
+      bill upkeep there <i>whether or not they earn</i>. That's the tycoon
+      game: when coins leak, the 🩺 advisor names the culprit and why.</p>
       <p><b>😊 Happiness</b> — match a creature's element to its habitat's biome,
       add decorations, avoid overcrowding. Below ${CONFIG.economy.unhappyThreshold}
       happiness a creature sulks: zero income, full upkeep. Click any creature

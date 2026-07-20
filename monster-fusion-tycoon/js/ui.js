@@ -8,7 +8,7 @@ import { CONFIG, ELEMENTS } from './config.js';
 import { S } from './state.js';
 import { generateCreatureArt, silhouetteSVG } from './art.js';
 import { rarityColor } from './creature.js';
-import { incomeBreakdown, happinessBreakdown } from './economy.js';
+import { incomeBreakdown, happinessBreakdown, inSanctuary, isExotic } from './economy.js';
 import { traitsOf, traitChips } from './traits.js';
 
 // --- Tab registry ------------------------------------------------------------
@@ -187,9 +187,11 @@ export function showCreatureModal(c, extraActionsHtml = '', wireExtra = null) {
       <div class="row spread"><span class="good">Revenue</span><b class="num good">+${fmt(revenue)}/s</b></div>
       <div class="row spread"><span class="bad">Upkeep</span><b class="num bad">−${fmt(maintenance)}/s</b></div>
       <div class="dim" style="font-size:.76rem;margin:2px 0 4px">
-        ${maintenance === 0
-          ? `${c.rarity} creatures are free to keep — upkeep starts at uncommon and grows steeply with rarity.`
-          : `Upkeep is billed always — in habitats, sulking, or in the reserve pen. Base ${fmt(CONFIG.economy.rarityMaintenancePerSec[c.rarity])}/s for ${c.rarity}, reduced by vitality${(c.traits || []).length ? ', modified by traits' : ''}.`}
+        ${inSanctuary(c)
+          ? `🕊️ Housed in a sanctuary — no upkeep while it stays here.${isExotic(c) ? ` The trade-off: ${c.rarity} creatures only earn ${Math.round(CONFIG.habitats.sanctuaryExoticRevenueMult * 100)}% in a sanctuary; an elemental habitat pays more but bills ${fmt(CONFIG.economy.rarityMaintenancePerSec[c.rarity])}/s base upkeep.` : ''}`
+          : maintenance === 0
+            ? `${c.rarity} creatures are free to keep — upkeep starts at uncommon and grows steeply with rarity.`
+            : `Upkeep bills in elemental habitats, while sulking, and in the reserve pen — but NOT in meadow sanctuaries. Base ${fmt(CONFIG.economy.rarityMaintenancePerSec[c.rarity])}/s for ${c.rarity}, reduced by vitality${(c.traits || []).length ? ', modified by traits' : ''}.`}
       </div>
       <div class="row spread"><span>Net</span><b class="num ${net >= 0 ? 'good' : 'bad'}">${fmtSigned(net)}/s</b></div>
     </div>

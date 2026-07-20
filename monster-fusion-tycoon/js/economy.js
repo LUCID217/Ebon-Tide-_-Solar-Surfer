@@ -103,6 +103,21 @@ export function habitatQualityMult(h) {
   return H.baseQualityMult + (h.level - 1) * H.qualityPerLevel;
 }
 
+/** Sanctuary biomes (meadow): residents bill no upkeep; exotics earn less. */
+export function isSanctuary(h) {
+  return H.sanctuaryBiomes.includes(h?.biome);
+}
+
+/** True when this creature currently lives in a sanctuary habitat. */
+export function inSanctuary(c) {
+  return c.habitatId !== null && isSanctuary(S.habitats[c.habitatId]);
+}
+
+/** Is this rarity "exotic" (rare and above — the ones with real upkeep)? */
+export function isExotic(c) {
+  return CONFIG.rarity.order.indexOf(c.rarity) >= CONFIG.rarity.order.indexOf('rare');
+}
+
 /**
  * Themed exhibit: 2+ residents who ALL share at least one element earn a
  * habitat-wide revenue bonus. Rewards curated placement over dumping.
@@ -191,16 +206,21 @@ export function revenuePerSec(c) {
   if (hp < E.unhappyThreshold) return 0; // sulking: earns nothing, still costs upkeep
   const h = S.habitats[c.habitatId];
   const themed = themedExhibitElement(c.habitatId) ? 1 + H.themedExhibitBonus : 1;
+  // Sanctuaries can't showcase exotics — rare+ earn only a fraction there.
+  const sanctuaryMult = inSanctuary(c) && isExotic(c) ? H.sanctuaryExoticRevenueMult : 1;
   return baseRevenuePerSec(c)
     * Math.pow(hp / 100, E.happinessRevenueCurve)
     * habitatQualityMult(h)
     * themed
+    * sanctuaryMult
     * ownMults(c).revenue
     * auraOn(c).revenueMult;
 }
 
-/** Coins/sec upkeep after trait multipliers (Ravenous, Frugal…). Always charged. */
+/** Coins/sec upkeep after trait multipliers (Ravenous, Frugal…).
+ *  Charged everywhere EXCEPT sanctuary habitats — the meadow feeds its own. */
 export function upkeepPerSec(c) {
+  if (inSanctuary(c)) return 0;
   return maintenancePerSec(c) * ownMults(c).maint;
 }
 
@@ -219,7 +239,7 @@ export function moneyIssueOf(c) {
   const { revenue, maintenance, net } = incomeBreakdown(c);
   if (c.habitatId === null) {
     return maintenance > 0
-      ? `sits in the reserve pen paying ${maintenance.toFixed(1)}/s upkeep and earning nothing — place it in a habitat or sell it`
+      ? `sits in the reserve pen paying ${maintenance.toFixed(1)}/s upkeep and earning nothing — move it to a meadow (no upkeep there) or sell it`
       : null; // free-to-keep commons can idle in reserve harmlessly
   }
   const hb = happinessBreakdown(c);
@@ -230,7 +250,7 @@ export function moneyIssueOf(c) {
     return `is sulking (happiness ${hb.total} < ${E.unhappyThreshold}): earns NOTHING but still bills upkeep — main cause: ${cause}`;
   }
   if (net < 0) {
-    return `runs at a loss (${revenue.toFixed(1)}/s earned vs ${maintenance.toFixed(1)}/s upkeep) — try a matching biome, decorations, or sell it`;
+    return `runs at a loss (${revenue.toFixed(1)}/s earned vs ${maintenance.toFixed(1)}/s upkeep) — try a matching biome, decorations, a meadow (upkeep-free), or sell it`;
   }
   return null;
 }

@@ -10,7 +10,7 @@ import {
   totalPerSec, collectRevenue, upgradeCost, upgradeHabitat, addDecoration,
   habitatQualityMult, placeCreature, buyHabitat, nextHabitatCost,
   themedExhibitElement, sellValue, sellCreature, rebiomeCost, rebiomeHabitat,
-  moneyIssueOf,
+  moneyIssueOf, isSanctuary,
 } from './economy.js';
 import {
   registerTab, creatureCard, fmt, fmtSigned, esc, toast,
@@ -144,6 +144,8 @@ function habitatHtml(h) {
         <h3>${ELEMENTS[h.biome]?.icon || '🌾'} ${esc(h.name)}</h3>
         <span class="dim">Lv.${h.level} · ×${habitatQualityMult(h).toFixed(2)} quality ·
           ${residents.length}/${cap} slots${h.decorations ? ' · ' + '🌸'.repeat(h.decorations) : ''}</span>
+        ${isSanctuary(h)
+          ? `<span class="good" title="Sanctuary: residents bill NO upkeep. Exotic (rare+) creatures only earn ${Math.round(CONFIG.habitats.sanctuaryExoticRevenueMult * 100)}% here.">🕊️ sanctuary — no upkeep</span>` : ''}
         ${themedExhibitElement(h.id)
           ? `<span class="gold" title="All residents share an element: +${Math.round(CONFIG.habitats.themedExhibitBonus * 100)}% habitat revenue">
               ${ELEMENTS[themedExhibitElement(h.id)]?.icon || ''} themed exhibit!</span>` : ''}

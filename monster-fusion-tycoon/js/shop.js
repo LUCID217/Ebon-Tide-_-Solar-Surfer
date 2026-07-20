@@ -29,8 +29,16 @@ export function buyEgg(element = null) {
   return { ok: true, creature: c, isNew };
 }
 
+/** Radiant eggs unlock once the player has fused enough to grasp upkeep. */
+export function radiantEggUnlocked() {
+  return S.counters.fusions >= SH.radiantEggUnlockFusions;
+}
+
 /** Radiant egg: pay relics, guaranteed rare+ hatch (weights in CONFIG.shop). */
 export function buyRadiantEgg() {
+  if (!radiantEggUnlocked()) {
+    return { ok: false, why: `Locked — perform ${SH.radiantEggUnlockFusions} fusions first.` };
+  }
   if (!spend({ relics: SH.radiantEggRelics })) return { ok: false, why: 'Not enough relics.' };
   const rng = mulberry32(freshSeed());
   const rarity = weightedPick(rng, SH.radiantEggWeights);
