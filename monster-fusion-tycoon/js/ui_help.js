@@ -3,6 +3,7 @@
 // topbar button. Pure UI, no state.
 // ============================================================================
 
+import { CONFIG } from './config.js';
 import { openModal, closeModal } from './ui.js';
 import { TRAITS } from './traits.js';
 
@@ -11,12 +12,14 @@ export function showHelp() {
     <h2>🧬 How to run a monster menagerie</h2>
     <div style="line-height:1.55">
       <p><b>🏞️ Menagerie</b> — creatures placed in habitats earn coins over time.
-      <b>Collect</b> often (it also trickles 💠 essence). Every creature charges
-      upkeep <i>whether or not it earns</i> — an unhappy or unplaced monster is
-      pure loss.</p>
+      <b>Collect</b> often (it also trickles 💠 essence). Common creatures are
+      free to keep; from uncommon up, upkeep is charged <i>whether or not they
+      earn</i> — the rarer the monster, the bigger the bill. When coins leak,
+      the 🩺 advisor on the Menagerie tab names the culprit and why.</p>
       <p><b>😊 Happiness</b> — match a creature's element to its habitat's biome,
-      add decorations, avoid overcrowding. Below 35 happiness a creature sulks:
-      zero income, full upkeep.</p>
+      add decorations, avoid overcrowding. Below ${CONFIG.economy.unhappyThreshold}
+      happiness a creature sulks: zero income, full upkeep. Click any creature
+      for its full happiness &amp; income breakdown.</p>
       <p><b>🥚 Breeding Den</b> — fuse two creatures into one hybrid. Parents are
       consumed! Elements merge (sometimes mutate), rarity can spike, and every
       new species pays an essence bounty and fills the Collection.</p>

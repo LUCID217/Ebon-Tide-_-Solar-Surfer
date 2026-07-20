@@ -47,17 +47,19 @@ export const CONFIG = {
     },
     // Maintenance: coins/sec drained per creature. Scales super-linearly with
     // rarity so top creatures are only worth keeping if well-managed.
+    // ON-RAMP: commons are FREE to keep — a new player's roster can never
+    // bleed them dry. Upkeep is a mechanic you grow into as you fuse upward.
     rarityMaintenancePerSec: {
-      common: 0.1, uncommon: 0.4, rare: 1.6, epic: 5, legendary: 16, mythic: 50,
+      common: 0, uncommon: 0.25, rare: 1.6, epic: 5, legendary: 16, mythic: 50,
     },
     vitalityMaintDiscount: 0.5, // at vitality 100, maintenance is reduced by up to 50%
     happinessRevenueCurve: 1.3, // revenueMult = (happiness/100)^this — unhappy creatures crater fast
-    unhappyThreshold: 35,       // below this happiness, a creature earns NOTHING (still costs maintenance!)
+    unhappyThreshold: 25,       // below this happiness, a creature earns NOTHING (still costs maintenance!)
 
     // Happiness drivers (recomputed continuously, 0..100):
-    happinessBase: 50,
+    happinessBase: 55,
     happinessElementMatch: 25,  // habitat biome matches one of creature's elements
-    happinessCrowdPenalty: 30,  // habitat at full capacity: up to -30 scaled by fill ratio
+    happinessCrowdPenalty: 14,  // full habitat: up to -14 scaled by fill (a squeeze, not a death trap)
     happinessCharmFactor: 0.2,  // + charm * this
     happinessDecorPer: 4,       // + per decoration in the habitat (see habitats.maxDecorations)
 

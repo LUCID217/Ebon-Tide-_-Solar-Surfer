@@ -10,6 +10,7 @@ import {
   totalPerSec, collectRevenue, upgradeCost, upgradeHabitat, addDecoration,
   habitatQualityMult, placeCreature, buyHabitat, nextHabitatCost,
   themedExhibitElement, sellValue, sellCreature, rebiomeCost, rebiomeHabitat,
+  moneyIssueOf,
 } from './economy.js';
 import {
   registerTab, creatureCard, fmt, fmtSigned, esc, toast,
@@ -40,6 +41,21 @@ function render(panel) {
       </button>
     </div>`;
 
+  // Advisor: name every creature that's costing money, and say why.
+  // This is the new player's window into how cost centres work.
+  const issues = Object.values(S.creatures)
+    .map(c => ({ c, why: moneyIssueOf(c) }))
+    .filter(x => x.why);
+  if (issues.length) {
+    html += `
+    <div class="section" style="border-color:var(--bad)">
+      <h3 style="margin-bottom:6px">🩺 Keeper's advisor <span class="dim">— where your coins are leaking</span></h3>
+      ${issues.slice(0, 4).map(({ c, why }) =>
+        `<div style="margin:3px 0;font-size:.88rem"><b>${esc(c.name)}</b> ${why} <span class="dim">(click its card for the full breakdown)</span></div>`).join('')}
+      ${issues.length > 4 ? `<div class="dim" style="font-size:.8rem">…and ${issues.length - 4} more.</div>` : ''}
+    </div>`;
+  }
+
   for (const hid of S.habitatOrder) html += habitatHtml(S.habitats[hid]);
 
   html += `
@@ -60,7 +76,7 @@ function render(panel) {
   html += `
     <div class="section">
       <div class="row spread">
-        <h2 style="margin:0">🎒 Reserve pen <span class="dim">(${reserve.length}) — creatures here earn nothing but still cost upkeep</span></h2>
+        <h2 style="margin:0">🎒 Reserve pen <span class="dim">(${reserve.length}) — earns nothing here; uncommon+ still bill upkeep</span></h2>
         ${reserve.length ? '<button id="btn-autoplace" title="Fill habitat slots, preferring element matches">🪄 Auto-place</button>' : ''}
       </div>
       <div class="card-grid" id="reserve-grid">

@@ -148,24 +148,37 @@ export function placeCreature(creature, habitatId) {
 // --- Happiness ---------------------------------------------------------------
 
 /**
- * Happiness 0..100, recomputed live (not stored): base + element/biome match
- * + charm + decorations + groundskeeper − crowding. Reserve creatures pin to 0.
+ * Happiness breakdown — the explainable version. Returns
+ * { total, parts: [[label, amount], …] } where parts list every contributor.
+ * This is the single source of truth; happinessOf() just takes the total.
+ * Reserve creatures pin to 0 (they're in a holding pen, not an exhibit).
  */
-export function happinessOf(c) {
-  if (c.habitatId === null) return 0;
+export function happinessBreakdown(c) {
+  if (c.habitatId === null || !S.habitats[c.habitatId]) {
+    return { total: 0, parts: [['In reserve pen — not on exhibit', 0]] };
+  }
   const h = S.habitats[c.habitatId];
-  if (!h) return 0;
-  let hp = E.happinessBase;
-  if (c.elements.includes(h.biome)) hp += E.happinessElementMatch;
-  hp += c.stats.charm * E.happinessCharmFactor;
-  hp += h.decorations * E.happinessDecorPer;
-  if (S.upgrades.groundskeeper) hp += CONFIG.shop.groundskeeperHappiness;
-  const cap = habitatCapacity(h);
-  const fill = creaturesInHabitat(c.habitatId).length / cap;
-  hp -= E.happinessCrowdPenalty * Math.max(0, (fill - 0.5) * 2); // penalty ramps in above half-full
-  hp += auraOn(c).happiness; // Muse lifts habitat-mates, Tyrant sours them
-  hp += ownMults(c).happiness; // biome-conditional self boosts (Sunborn…)
-  return Math.max(0, Math.min(100, Math.round(hp)));
+  const parts = [['Base contentment', E.happinessBase]];
+  parts.push(c.elements.includes(h.biome)
+    ? [`Biome match (${h.biome})`, E.happinessElementMatch]
+    : [`No biome match (wants ${c.elements.join('/')})`, 0]);
+  parts.push(['Charm', Math.round(c.stats.charm * E.happinessCharmFactor)]);
+  if (h.decorations) parts.push([`Decorations ×${h.decorations}`, h.decorations * E.happinessDecorPer]);
+  if (S.upgrades.groundskeeper) parts.push(['Groundskeeper', CONFIG.shop.groundskeeperHappiness]);
+  const fill = creaturesInHabitat(c.habitatId).length / habitatCapacity(h);
+  const crowd = Math.round(E.happinessCrowdPenalty * Math.max(0, (fill - 0.5) * 2));
+  if (crowd) parts.push(['Crowded habitat', -crowd]);
+  const aura = auraOn(c).happiness;
+  if (aura) parts.push(['Habitat-mates’ auras', aura]);
+  const own = ownMults(c).happiness;
+  if (own) parts.push(['Own trait (biome bonus)', own]);
+  const total = Math.max(0, Math.min(100, Math.round(parts.reduce((s, [, v]) => s + v, 0))));
+  return { total, parts };
+}
+
+/** Happiness 0..100 (see happinessBreakdown for the why). */
+export function happinessOf(c) {
+  return happinessBreakdown(c).total;
 }
 
 // --- Per-creature net income (also used by UI to show the balance sheet) -----
@@ -196,6 +209,30 @@ export function incomeBreakdown(c) {
   const revenue = revenuePerSec(c);
   const maintenance = upkeepPerSec(c);
   return { revenue, maintenance, net: revenue - maintenance };
+}
+
+/**
+ * Money doctor: if this creature is costing the player, return a short
+ * human-readable diagnosis (string) — else null. Drives the menagerie advisor.
+ */
+export function moneyIssueOf(c) {
+  const { revenue, maintenance, net } = incomeBreakdown(c);
+  if (c.habitatId === null) {
+    return maintenance > 0
+      ? `sits in the reserve pen paying ${maintenance.toFixed(1)}/s upkeep and earning nothing — place it in a habitat or sell it`
+      : null; // free-to-keep commons can idle in reserve harmlessly
+  }
+  const hb = happinessBreakdown(c);
+  if (hb.total < E.unhappyThreshold) {
+    const worst = hb.parts.filter(([, v]) => v < 0).sort((a, b) => a[1] - b[1])[0];
+    const missing = hb.parts.find(([label]) => label.startsWith('No biome match'));
+    const cause = worst ? worst[0].toLowerCase() : (missing ? missing[0].toLowerCase() : 'low happiness');
+    return `is sulking (happiness ${hb.total} < ${E.unhappyThreshold}): earns NOTHING but still bills upkeep — main cause: ${cause}`;
+  }
+  if (net < 0) {
+    return `runs at a loss (${revenue.toFixed(1)}/s earned vs ${maintenance.toFixed(1)}/s upkeep) — try a matching biome, decorations, or sell it`;
+  }
+  return null;
 }
 
 /** Menagerie-wide totals per second. */

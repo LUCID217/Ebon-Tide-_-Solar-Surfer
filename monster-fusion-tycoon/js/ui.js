@@ -8,7 +8,7 @@ import { CONFIG, ELEMENTS } from './config.js';
 import { S } from './state.js';
 import { generateCreatureArt, silhouetteSVG } from './art.js';
 import { rarityColor } from './creature.js';
-import { incomeBreakdown, happinessOf } from './economy.js';
+import { incomeBreakdown, happinessBreakdown } from './economy.js';
 import { traitsOf, traitChips } from './traits.js';
 
 // --- Tab registry ------------------------------------------------------------
@@ -149,7 +149,8 @@ export function confirmModal(messageHtml, onYes, yesLabel = 'Yes, do it') {
 /** Detail modal for a creature: art, stats, income breakdown, actions. */
 export function showCreatureModal(c, extraActionsHtml = '', wireExtra = null) {
   const { revenue, maintenance, net } = incomeBreakdown(c);
-  const hp = happinessOf(c);
+  const hb = happinessBreakdown(c);
+  const hp = hb.total;
   const stat = (label, v) => `
     <div class="statbar"><span class="label">${label}</span>
       <div class="track"><div style="width:${Math.min(100, v / 2)}%"></div></div>
@@ -173,8 +174,23 @@ export function showCreatureModal(c, extraActionsHtml = '', wireExtra = null) {
     </div>` : ''}
     <div class="section" style="margin-bottom:10px">
       <div class="row spread"><span>😊 Happiness</span><b class="num">${hp}/100</b></div>
+      <details style="margin:2px 0 8px">
+        <summary class="dim" style="cursor:pointer;font-size:.8rem">Why? (happiness breakdown)</summary>
+        <div style="font-size:.8rem;margin-top:4px">
+          ${hb.parts.map(([label, v]) => `<div class="row spread">
+            <span class="dim">${esc(label)}</span>
+            <span class="num ${v > 0 ? 'good' : v < 0 ? 'bad' : 'dim'}">${v > 0 ? '+' : ''}${v}</span></div>`).join('')}
+          ${hp < CONFIG.economy.unhappyThreshold && c.habitatId !== null
+            ? `<div class="bad" style="margin-top:4px">Below ${CONFIG.economy.unhappyThreshold}: earns NOTHING until happier.</div>` : ''}
+        </div>
+      </details>
       <div class="row spread"><span class="good">Revenue</span><b class="num good">+${fmt(revenue)}/s</b></div>
-      <div class="row spread"><span class="bad">Maintenance</span><b class="num bad">−${fmt(maintenance)}/s</b></div>
+      <div class="row spread"><span class="bad">Upkeep</span><b class="num bad">−${fmt(maintenance)}/s</b></div>
+      <div class="dim" style="font-size:.76rem;margin:2px 0 4px">
+        ${maintenance === 0
+          ? `${c.rarity} creatures are free to keep — upkeep starts at uncommon and grows steeply with rarity.`
+          : `Upkeep is billed always — in habitats, sulking, or in the reserve pen. Base ${fmt(CONFIG.economy.rarityMaintenancePerSec[c.rarity])}/s for ${c.rarity}, reduced by vitality${(c.traits || []).length ? ', modified by traits' : ''}.`}
+      </div>
       <div class="row spread"><span>Net</span><b class="num ${net >= 0 ? 'good' : 'bad'}">${fmtSigned(net)}/s</b></div>
     </div>
     ${extraActionsHtml}
