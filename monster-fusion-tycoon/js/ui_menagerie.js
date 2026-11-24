@@ -112,7 +112,7 @@ function render(panel) {
       const open = S.habitatOrder
         .map(hid => S.habitats[hid])
         .filter(h => creaturesInHabitat(h.id).length < habitatCapacity(h));
-      const match = open.find(h => c.elements.includes(h.biome));
+      const match = open.find(h => c.element === h.biome);
       const target = match || open[0];
       if (target && placeCreature(c, target.id).ok) moved++;
     }

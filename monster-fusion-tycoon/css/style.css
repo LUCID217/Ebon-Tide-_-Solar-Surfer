@@ -266,3 +266,17 @@ h3 { font-size: 1rem; }
   #main { padding: 10px; }
   .card-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
 }
+
+/* --- v5: 5/5/5 dex, den preview, rule tables ------------------------------ */
+.log-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+.log-entry.missing { opacity: .55; border-style: dashed; }
+.dex-unknown {
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; background: var(--bg-card); color: var(--text-dim);
+  font-size: 1.6rem; font-weight: 700;
+}
+.den-preview { margin-top: 8px; text-align: left; display: grid; gap: 3px; font-size: .82rem; }
+.rules-block { margin: 8px 0; font-size: .8rem; line-height: 1.5; text-align: left; }
+.recipe-table { border-collapse: collapse; margin: 6px auto; font-size: 1rem; }
+.recipe-table th, .recipe-table td { width: 34px; height: 30px; text-align: center; border: 1px solid var(--border); }
+.recipe-table th { background: var(--bg-card); }

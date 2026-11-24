@@ -3,10 +3,10 @@
 // start the fusion, watch the timer, get the dramatic reveal.
 // ============================================================================
 
-import { CONFIG, ELEMENTS } from './config.js';
+import { CONFIG, ELEMENTS, TYPES, CLASSES, feedsTarget } from './config.js';
 import { S } from './state.js';
-import { fusionMods } from './traits.js';
-import { fusionCost, fusionTimeSec, canFuse, startFusion, tryResolveFusion, volatilePairCount } from './fusion.js';
+import { fusionCost, fusionTimeSec, canFuse, startFusion, fusionOdds } from './fusion.js';
+import { classRecipeTableHtml, elementCycleHtml } from './ui_help.js';
 import { spend } from './state.js';
 import {
   registerTab, creatureCard, mountArt, fmt, esc, toast, renderResources,
@@ -26,7 +26,7 @@ const RARITY_ORDER = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic
 
 function sortedRoster() {
   let list = Object.values(S.creatures);
-  if (filterEl) list = list.filter(c => c.elements.includes(filterEl));
+  if (filterEl) list = list.filter(c => c.element === filterEl);
   const cmp = {
     newest: (a, b) => b.bornAt - a.bornAt,
     tier: (a, b) => b.tier - a.tier,
@@ -75,6 +75,11 @@ function render(panel) {
         <div class="den-slot ${b ? 'filled' : ''}" id="den-b">${b ? '' : 'Parent B<br><span style="font-size:.72rem">pick below</span>'}</div>
       </div>
       <div style="text-align:center">${costHtml}<div style="margin-top:10px">${fuseBtn}</div></div>
+      <details class="den-rules" style="margin-top:10px">
+        <summary class="dim" style="cursor:pointer">📜 Fusion rules: element cycle &amp; class recipes</summary>
+        ${elementCycleHtml()}
+        ${classRecipeTableHtml()}
+      </details>
     </div>
     <div class="section">
       <div class="row spread">
@@ -130,29 +135,36 @@ function render(panel) {
 }
 
 /**
- * Deterministic pre-fusion intel: element pool, child tier, rarity floor and
- * spike odds. Shows what CAN happen without spoiling what WILL (the sealed
- * seed decides that).
+ * Deterministic pre-fusion intel, axis by axis — read straight from
+ * fusionOdds(), the same numbers computeChild rolls against. Shows what CAN
+ * happen without spoiling what WILL (the sealed seed decides that).
  */
 function previewHtml(a, b) {
   const R = CONFIG.rarity;
-  const pool = [...new Set([...a.elements, ...b.elements])];
+  const o = fusionOdds(a, b);
   const tier = Math.min(CONFIG.fusion.maxTier, Math.max(a.tier, b.tier) + 1);
   const floorIdx = Math.max(R.order.indexOf(a.rarity), R.order.indexOf(b.rarity));
-  // Mirror computeChild's odds: diversity bonus uses the (possibly trimmed)
-  // element count — approximate with the pool size capped at maxElements.
-  const nEls = Math.min(pool.length, CONFIG.fusion.maxElements);
-  const divBonus = R.elementDiversityBonus * (nEls - 1) + fusionMods(a, b).upgradeBonus;
-  const spikePct = Math.round(100 * Math.min(1, R.doubleUpgradeChance + R.upgradeChance + divBonus));
-  const volatile = volatilePairCount(a, b);
-  const mutPct = Math.round(100 * Math.min(1, CONFIG.fusion.mutationChance + volatile * CONFIG.fusion.volatileMutationBonus));
-  return `<div class="dim" style="margin-top:6px">
-    Offspring: Tier ${tier} · elements drawn from
-    ${pool.map(e => ELEMENTS[e]?.icon || '❓').join('')}
-    (${mutPct}% mutation chance) ·
-    rarity ≥ <b style="color:${R.colors[R.order[floorIdx]]}">${R.order[floorIdx]}</b>,
-    ~${spikePct}% chance to spike
-    ${volatile ? `<div class="gold" style="margin-top:3px">⚡ Volatile pairing! Opposing elements — unstable ritual, stat surge ×${(1 + volatile * CONFIG.fusion.volatileStatBonus).toFixed(2)}</div>` : ''}</div>`;
+  const spikePct = Math.round(100 * Math.min(1, R.doubleUpgradeChance + R.upgradeChance + o.upgradeBonus));
+  const pct = p => `${Math.round(p * 100)}%`;
+  const el = k => `${ELEMENTS[k]?.icon || '❓'} ${ELEMENTS[k]?.label || k}`;
+  const ty = k => `${TYPES[k]?.icon || ''} ${TYPES[k]?.label || k}`;
+  const elOdds = Object.entries(o.elementOdds).map(([k, p]) => `${el(k)} ${pct(p)}`).join(' / ');
+  const elLine = {
+    same: `Same element — ${el(a.element)} is kept`,
+    feeds: `${el(feedsTarget(a.element) === b.element ? a.element : b.element)} feeds ${el(Object.keys(o.elementOdds)[0])} → child is ${el(Object.keys(o.elementOdds)[0])}, stats ×${o.statMult.toFixed(2)}`,
+    volatile: `<span class="gold">⚡ Volatile!</span> ${elOdds} · stats ×${o.statMult.toFixed(2)}`,
+    other: `Weighted dice: ${elOdds}`,
+  }[o.bond];
+  const typeLine = Object.keys(o.typeOdds).length === 1
+    ? `Same body — ${ty(a.type)} is kept`
+    : Object.entries(o.typeOdds).map(([k, p]) => `${ty(k)} ${pct(p)}`).join(' / ') + ' <span class="dim">(rarer parent favoured)</span>';
+  const k = CLASSES[o.cls];
+  return `<div class="den-preview">
+    <div><b>Element</b> · ${elLine} <span class="dim">(${pct(o.mutationChance)} mutation)</span></div>
+    <div><b>Body</b> · ${typeLine}</div>
+    <div><b>Class</b> · ${k.icon} ${k.label} <span class="dim">— ${k.role} (recipe)</span></div>
+    <div><b>Tier</b> ${tier} · rarity ≥ <b style="color:${R.colors[R.order[floorIdx]]}">${R.order[floorIdx]}</b>, ~${spikePct}% chance to spike</div>
+  </div>`;
 }
 
 function renderPending(panel) {
@@ -178,7 +190,8 @@ function revealHtml(c) {
       <div class="dim">A new creature emerges!</div>
       <div class="art-big" id="reveal-art" style="width:120px;height:120px;margin:6px auto"></div>
       <h2 style="color:${rarityColor(c)}">${esc(c.name)}</h2>
-      <div class="dim">Tier ${c.tier} · ${c.rarity}${c.mutated ? ' · <span class="gold">⚡ unexpected mutation!</span>' : ''}</div>
+      <div class="dim">Tier ${c.tier} · ${c.rarity}${c.mutated ? ' · <span class="gold">⚡ unexpected mutation!</span>'
+        : c.bond === 'feeds' ? ' · 🌱 a nurtured birth' : c.bond === 'volatile' ? ' · ⚡ born of a volatile pairing' : ''}</div>
     </div>`;
 }
 

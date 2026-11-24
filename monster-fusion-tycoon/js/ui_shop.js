@@ -4,7 +4,7 @@
 
 import { CONFIG, ELEMENTS } from './config.js';
 import { S } from './state.js';
-import { eggPrice, buyEgg, buyRadiantEgg, radiantEggUnlocked, sellEssence, buyEssence, breakRelic, forgeRelic, STAFF, hireStaff, staffUnlocked } from './shop.js';
+import { eggPrice, eggWeights, buyEgg, buyRadiantEgg, radiantEggUnlocked, sellEssence, buyEssence, breakRelic, forgeRelic, STAFF, hireStaff, staffUnlocked } from './shop.js';
 import { registerTab, fmt, esc, toast, renderResources, renderActiveTab } from './ui.js';
 import { rarityColor } from './creature.js';
 import { saveGame } from './save.js';
@@ -23,6 +23,13 @@ function render(panel) {
           ? `<button id="buy-radiant" title="Guaranteed rare or better — rare+ creatures bill real upkeep!">✨ Radiant egg — ${CONFIG.shop.radiantEggRelics} 🏺</button>`
           : `<button disabled title="Rare+ creatures bill serious upkeep — master fusion first">🔒 Radiant egg — after ${CONFIG.shop.radiantEggUnlockFusions} fusions (${S.counters.fusions}/${CONFIG.shop.radiantEggUnlockFusions})</button>`}
         <span class="dim">Mystery price rises with every egg bought (${S.counters.eggsBought} so far). Eggs hatch common/uncommon — fusion is how rarity climbs.</span>
+      </div>
+      <div class="dim" style="margin-top:6px">${(() => {
+        const { weights, seers } = eggWeights();
+        const tot = weights.common + weights.uncommon;
+        return `🔮 Egg odds: ${Math.round(100 * weights.common / tot)}% common / ${Math.round(100 * weights.uncommon / tot)}% uncommon`
+          + (seers ? ` — ${seers} Seer${seers > 1 ? 's' : ''} on exhibit improving your luck` : ' — Seers on exhibit improve these odds');
+      })()}
       </div>
       <div class="row" style="margin-top:8px" id="element-eggs">
         ${Object.entries(ELEMENTS).map(([k, e]) =>

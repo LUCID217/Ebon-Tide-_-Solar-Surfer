@@ -4,7 +4,7 @@
 // themselves via registerTab(), so tabs can ship incrementally.
 // ============================================================================
 
-import { CONFIG, ELEMENTS } from './config.js';
+import { CONFIG, ELEMENTS, TYPES, CLASSES } from './config.js';
 import { S } from './state.js';
 import { generateCreatureArt, silhouetteSVG } from './art.js';
 import { rarityColor } from './creature.js';
@@ -65,8 +65,16 @@ export function fmt(n) {
 
 export function fmtSigned(n) { return (n >= 0 ? '+' : '') + fmt(n); }
 
+/** Compact species chips: element + class icon (with hover labels). */
 export function elementIcons(c) {
-  return c.elements.map(e => ELEMENTS[e]?.icon || '❓').join('');
+  const e = ELEMENTS[c.element], k = CLASSES[c.cls];
+  return `<span title="${e?.label || '?'}">${e?.icon || '❓'}</span><span title="${k ? `${k.label}: ${k.role}` : '?'}">${k?.icon || ''}</span>`;
+}
+
+/** One-line species identity: "🔥 Ember · 🐾 Beast · 🪓 Brute". */
+export function speciesLine(c) {
+  const e = ELEMENTS[c.element], t = TYPES[c.type], k = CLASSES[c.cls];
+  return [e && `${e.icon} ${e.label}`, t && `${t.icon} ${t.label}`, k && `${k.icon} ${k.label}`].filter(Boolean).join(' · ');
 }
 
 export function esc(s) {
@@ -168,6 +176,9 @@ export function showCreatureModal(c, extraActionsHtml = '', wireExtra = null) {
       <div class="cmeta dim">${elementIcons(c)} Tier ${c.tier} ·
         <span class="rarity-tag" style="--rarity:${rarityColor(c)}">${c.rarity}</span>
         ${c.mutated ? ' · <span class="gold">⚡ mutant</span>' : ''}</div>
+      <div class="dim" style="font-size:.8rem;margin-top:3px">${speciesLine(c)}</div>
+      ${CLASSES[c.cls] ? `<div class="dim" style="font-size:.76rem">${CLASSES[c.cls].icon} ${CLASSES[c.cls].label}: ${CLASSES[c.cls].role}</div>` : ''}
+      ${c.legacyName ? `<div class="dim" style="font-size:.72rem">Formerly known as ${esc(c.legacyName)}</div>` : ''}
       ${(() => {
         // Prefer the lineage ledger (authoritative); fall back to the legacy
         // parents-names field for pre-v4 creatures whose fusions predate it.
@@ -206,7 +217,7 @@ export function showCreatureModal(c, extraActionsHtml = '', wireExtra = null) {
           ? `🕊️ Housed in a sanctuary — no upkeep while it stays here.${isExotic(c) ? ` The trade-off: ${c.rarity} creatures only earn ${Math.round(CONFIG.habitats.sanctuaryExoticRevenueMult * 100)}% in a sanctuary; an elemental habitat pays more but bills ${fmt(CONFIG.economy.rarityMaintenancePerSec[c.rarity])}/s base upkeep.` : ''}`
           : maintenance === 0
             ? `${c.rarity} creatures are free to keep — upkeep starts at uncommon and grows steeply with rarity.`
-            : `Upkeep bills in elemental habitats, while sulking, and in the reserve pen — but NOT in meadow sanctuaries. Base ${fmt(CONFIG.economy.rarityMaintenancePerSec[c.rarity])}/s for ${c.rarity}, reduced by vitality${(c.traits || []).length ? ', modified by traits' : ''}.`}
+            : `Upkeep bills in elemental habitats, while sulking, and in the reserve pen — but NOT in meadow sanctuaries. Base ${fmt(CONFIG.economy.rarityMaintenancePerSec[c.rarity])}/s for ${c.rarity}, reduced by vitality${c.cls === 'brute' ? ', ×' + CONFIG.classes.brute.maintMult + ' for a Brute' : ''}${(c.traits || []).length ? ', modified by traits' : ''}.`}
       </div>
       <div class="row spread"><span>Net</span><b class="num ${net >= 0 ? 'good' : 'bad'}">${fmtSigned(net)}/s</b></div>
     </div>

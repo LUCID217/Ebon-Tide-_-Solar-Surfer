@@ -38,8 +38,8 @@ function nodeHtml(snap, depth, mounts, isFocus = false) {
     <div class="lin-node ${isFocus ? 'lin-focus' : ''}" style="--rarity:${rarityColor(snap)}">
       <div class="lin-art" id="${artId}"></div>
       <div class="lin-info">
-        <div class="lin-name">${esc(snap.name)}
-          ${snap.mutated ? '<span title="Gained an element neither parent had">⚡</span>' : ''}</div>
+        <div class="lin-name"${snap.legacyName ? ` title="Formerly ${esc(snap.legacyName)}"` : ''}>${esc(snap.name)}
+          ${snap.mutated ? '<span title="Mutated into an element neither parent had">⚡</span>' : ''}</div>
         <div class="lin-meta dim">${elementIcons(snap)} T${snap.tier} ·
           <span class="rarity-tag" style="--rarity:${rarityColor(snap)}">${snap.rarity}</span>
           · Gen ${generationOf(snap.id)}</div>
