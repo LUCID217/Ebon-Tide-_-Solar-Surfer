@@ -7,7 +7,9 @@
 
 import { CONFIG } from './config.js';
 import { S, setState, freshState } from './state.js';
-import { syncIdCounter } from './creature.js';
+import { syncIdCounter, speciesName, speciesSignature } from './creature.js';
+import { remapCreatureShape, remapElement } from './legacy.js';
+import { biomeName } from './economy.js';
 
 import { rollTraits } from './traits.js';
 
@@ -35,6 +37,55 @@ const MIGRATIONS = {
   3: (save) => {
     save.lineage = save.lineage || {};
     save.version = 4;
+    return save;
+  },
+  // v4 -> v5: the 5/5/5 restructure. 8 elements × 12 archetypes collapse to
+  // 5 elements × 5 types × 5 classes (maps in config.js, logic in legacy.js).
+  // Every creature carries over — same id, seed, stats, rarity, tier, traits —
+  // with `elements`/`archetype` replaced by `element`/`type`/`cls` and its
+  // name recomputed. The lineage ledger is remapped IN PLACE: every record
+  // and snapshot is kept (old names preserved as `legacyName`), so family
+  // trees survive intact. The discovery log is re-keyed by the new species
+  // signature; old entries that collapse onto one species merge their counts.
+  4: (save) => {
+    const rename = c => {
+      remapCreatureShape(c);
+      if (c.name && !c.legacyName) c.legacyName = c.name;
+      c.name = speciesName(c);
+      return c;
+    };
+    for (const c of Object.values(save.creatures || {})) rename(c);
+    if (save.pendingFusion) {
+      rename(save.pendingFusion.parentSnapshotA);
+      rename(save.pendingFusion.parentSnapshotB);
+    }
+    for (const rec of Object.values(save.lineage || {})) {
+      if (rec?.a) rename(rec.a);
+      if (rec?.b) rename(rec.b);
+    }
+    const merged = {};
+    for (const e of Object.values(save.discovered || {})) {
+      remapCreatureShape(e);
+      const sig = speciesSignature(e);
+      const prev = merged[sig];
+      if (!prev) {
+        merged[sig] = { ...e, name: speciesName(e) };
+      } else {
+        prev.count = (prev.count || 0) + (e.count || 0);
+        if ((e.firstAt ?? Infinity) < (prev.firstAt ?? Infinity)) prev.firstAt = e.firstAt;
+        const ord = CONFIG.rarity.order;
+        if (ord.indexOf(e.rarity) > ord.indexOf(prev.rarity)) prev.rarity = e.rarity;
+        if ((e.tier || 0) > (prev.tier || 0)) prev.tier = e.tier;
+      }
+    }
+    save.discovered = merged;
+    for (const h of Object.values(save.habitats || {})) {
+      if (h.biome !== 'meadow') {
+        h.biome = remapElement(h.biome) || 'meadow';
+        h.name = biomeName(h.biome);
+      }
+    }
+    save.version = 5;
     return save;
   },
 };

@@ -1,8 +1,10 @@
 // ============================================================================
 // share.js — offline-first creature sharing.
 //
-// FORMAT (documented in README): `MFT1.<payload>.<checksum>`
-//   - MFT1      : format tag + version. Bump to MFT2 if fields change.
+// FORMAT (documented in README): `MFT2.<payload>.<checksum>`
+//   - MFT2      : format tag + version (v5 creatures: element/type/cls).
+//                 MFT1 strings (old elements[]/archetype) still import —
+//                 they are remapped by legacy.js exactly like old saves.
 //   - <payload> : base64url( JSON of the minimal creature fields )
 //   - <checksum>: FNV-1a hash (base36) of the payload — catches paste mangling.
 // The full creature is encoded; no server is needed to view or adopt one.
@@ -18,8 +20,11 @@ import { hashStr } from './rng.js';
 import { nextCreatureId, speciesName } from './creature.js';
 import { registerDiscovery } from './fusion.js';
 import { rollTraits } from './traits.js';
+import { ELEMENTS, TYPES, CLASSES } from './config.js';
+import { remapCreatureShape } from './legacy.js';
 
-const FORMAT_TAG = 'MFT1';
+const FORMAT_TAG = 'MFT2';
+const ACCEPTED_TAGS = ['MFT1', 'MFT2'];
 
 // --- base64url helpers (unicode-safe) ---------------------------------------
 
@@ -43,8 +48,9 @@ function b64urlDecode(s) {
 export function exportCreature(c) {
   const payload = b64urlEncode(JSON.stringify({
     seed: c.seed,
-    elements: c.elements,
-    archetype: c.archetype,
+    element: c.element,
+    type: c.type,
+    cls: c.cls,
     tier: c.tier,
     rarity: c.rarity,
     stats: c.stats,
@@ -73,9 +79,10 @@ export function decodeShareString(raw) {
   const m = str.match(/#c=([^&\s]+)/);
   const token = m ? m[1] : str;
   const parts = token.split('.');
-  if (parts.length !== 3 || parts[0] !== FORMAT_TAG) {
-    return { ok: false, why: 'Not a valid share string (expected MFT1.…).' };
+  if (parts.length !== 3 || !ACCEPTED_TAGS.includes(parts[0])) {
+    return { ok: false, why: 'Not a valid share string (expected MFT2.…).' };
   }
+  const legacy = parts[0] === 'MFT1';
   const [, payload, check] = parts;
   if (hashStr(payload).toString(36) !== check) {
     return { ok: false, why: 'Checksum mismatch — the string got mangled in transit.' };
@@ -86,9 +93,17 @@ export function decodeShareString(raw) {
   } catch {
     return { ok: false, why: 'Could not decode the payload.' };
   }
+  if (!data || typeof data !== 'object') return { ok: false, why: 'Could not decode the payload.' };
+  // Old MFT1 creatures: remap onto 5/5/5 exactly like a migrated save.
+  if (legacy) {
+    if (!Array.isArray(data.elements) || !data.elements.length || typeof data.archetype !== 'string') {
+      return { ok: false, why: 'Old (MFT1) share string is missing creature fields.' };
+    }
+    remapCreatureShape(data);
+  }
   // Validate shape defensively — this is external input.
-  if (!Number.isFinite(data.seed) || !Array.isArray(data.elements) || !data.elements.length
-    || typeof data.archetype !== 'string' || !Number.isFinite(data.tier)
+  if (!Number.isFinite(data.seed) || !ELEMENTS[data.element] || !TYPES[data.type]
+    || !CLASSES[data.cls] || !Number.isFinite(data.tier)
     || typeof data.rarity !== 'string' || typeof data.stats !== 'object' || data.stats === null) {
     return { ok: false, why: 'Share string is missing creature fields.' };
   }
@@ -96,8 +111,9 @@ export function decodeShareString(raw) {
   const creature = {
     id: null, // assigned on adopt
     seed: data.seed >>> 0,
-    elements: data.elements.slice(0, 3).map(String),
-    archetype: String(data.archetype),
+    element: data.element,
+    type: data.type,
+    cls: data.cls,
     tier: Math.max(1, Math.min(12, Math.round(data.tier))),
     rarity: ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'].includes(data.rarity) ? data.rarity : 'common',
     stats: {
