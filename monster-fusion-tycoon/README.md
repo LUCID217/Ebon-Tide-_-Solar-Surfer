@@ -17,13 +17,30 @@ Vanilla HTML + CSS + JS (ES modules). All persistence is `localStorage`.
 
 ## The game
 
+- **Species: 5 × 5 × 5 = 125.** Every creature is an **element** (Ember,
+  Stone, Frost, Tide, Grove) × a **body type** (Beast, Wyrm, Avian, Crawler,
+  Construct) × a **class** (Brute, Guardian, Tender, Seer, Trickster). The set
+  is finite and knowable; dice, colour/pattern variants, traits and lineage
+  depth keep individuals varied inside it.
 - **Breeding Den** — pick two parents, pay coins + essence, watch the ritual
-  resolve. Parents are consumed. Element sets merge open-endedly (union +
-  mutation chance), rarity can spike, stats inherit with variance. The outcome
-  is sealed the moment you press Fuse (seeded RNG — no save-scumming).
-  **Volatile pairings**: fusing opposing elements (🔥/💧, ✨/🌑, ⛰️/🌪️) raises
-  mutation odds and surges stats. The den previews element pool, mutation %,
-  and rarity odds before you commit.
+  resolve. Parents are consumed. The child resolves **one axis at a time**:
+  - *Element* follows the cycle Ember → Stone → Frost → Tide → Grove → Ember.
+    Same element is kept. A **feeds** pair (neighbours) gives the fed element
+    plus a stat bonus. An **overcomes** pair (two apart: Ember > Frost,
+    Stone > Tide, Frost > Grove, Tide > Ember, Grove > Stone) is ⚡ volatile:
+    dice between the parents, a chance to mutate into a third element, a stat
+    surge and a rarity bonus. (On a 5-cycle every distinct pair is one or the
+    other, so the "weighted dice" fallback never fires with real elements.)
+  - *Body type*: same is kept, otherwise 60/40 for the rarer parent's.
+  - *Class*: a learnable, symmetric 5×5 recipe table (`CLASS_RECIPES`).
+  Rarity can spike, stats inherit with variance. The outcome is sealed the
+  moment you press Fuse (seeded RNG — no save-scumming). The den previews the
+  odds on every axis, straight from the same `fusionOdds()` the roll uses.
+- **Classes are tycoon roles**: 🪓 Brute earns ×1.3 but bills ×1.6 upkeep;
+  🛡️ Guardian adds happiness to its whole habitat; 🧺 Tender cuts its own and
+  its habitat-mates' upkeep; 🔮 Seer improves base-egg odds while on exhibit
+  (still common/uncommon only) and rarity spikes as a parent; 🎭 Trickster
+  raises a fusion's mutation chance. Numbers in `CONFIG.classes`.
 - **Menagerie** — creatures live in biome habitats you build, upgrade, and
   decorate. They earn passively, scaled by rarity, happiness, habitat quality,
   and traits. **Meadows are sanctuaries**: residents bill zero upkeep (exotic
@@ -44,8 +61,9 @@ Vanilla HTML + CSS + JS (ES modules). All persistence is `localStorage`.
   resource exchange (coins ⇄ essence ⇄ relics), and permanent staff hires
   gated behind progression. Habitats can be upgraded, decorated, re-biomed,
   and expanded; creatures can be sold/retired for coins.
-- **Collection** — an open-ended Pokédex of every species signature ever
-  created. Fusion makes the space effectively unbounded.
+- **Collection** — a 125-slot species dex in canonical order, with per-element
+  completion. Undiscovered slots show as ??? with their element and body as a
+  hint. (Hidden secret recipes are a planned later pass.)
 - **Objectives** — date-seeded dailies + lifetime milestones. Milestones are
   the only faucet for relics (premium material — earned, never bought).
 - **Lineage** — every fusion is recorded in an append-only ancestry ledger
@@ -67,7 +85,11 @@ Vanilla HTML + CSS + JS (ES modules). All persistence is `localStorage`.
 The game is management-UI-heavy (panels, lists, shops, logs) — DOM handles that
 natively with layout and accessibility for free. Creature art is procedural
 **inline SVG**: deterministic geometry derived from each creature's own data
-(elements, archetype, rarity, seed). SVG scales crisply at any size, costs
+(element, type, class, rarity, seed), composed in layers: body (5, by type) →
+element palette (5) → class gear (5) — 15 parts that cover all 125 species.
+The layers are independent functions in `art.js` (`BODIES`, `paletteFor`,
+`GEAR`), so a final style (vinyl toy or papercut/sticker) can replace them
+part by part. SVG scales crisply at any size, costs
 nothing to cache, and swaps trivially for real raster art later. Canvas would
 buy nothing here and cost us layout.
 
@@ -88,6 +110,7 @@ monster-fusion-tycoon/
     shop.js          — eggs, resource exchange, staff logic
     objectives.js    — dailies + milestones logic
     save.js          — schema-versioned localStorage + migrations
+    legacy.js        — pre-v5 → 5/5/5 remap (shared by save migration + MFT1 import)
     share.js         — share-string encode/decode/adopt
     state.js         — single owner of mutable state (S) + shared helpers
     ui.js            — UI core: tab registry, cards, modal, toasts, formatting
@@ -98,6 +121,8 @@ monster-fusion-tycoon/
     ui_objectives.js — Objectives tab (+ claimable badge)
     ui_share.js      — share/import modals, #c= URL handling
     main.js          — bootstrap + 1s game loop + autosave
+  tests/run.mjs      — Playwright regression suite (node tests/run.mjs)
+  tools/build-single.mjs — bundles everything into dist/monster-fusion-tycoon.html
 ```
 
 Module rule: `state.js` owns all mutable state; logic modules mutate it through
@@ -109,18 +134,20 @@ Everything a designer would tune, in one block, grouped:
 
 | Group | What lives there |
 |---|---|
-| `CONFIG.fusion` | fusion coin/essence costs + per-tier scaling, resolve time, stat variance (±25%), per-tier stat growth, max elements per hybrid, **mutationChance** (new-element rate — the open-endedness dial), archetype shift chance, max tier |
+| `CONFIG.fusion` | fusion coin/essence costs + per-tier scaling, resolve time, stat variance (±25%), per-tier stat growth, max tier, and the per-axis rules: feeds stat bonus, volatile odds/mutation/stat/rarity bonuses, base mutation chance, the rarer-parent type weight |
+| `CONFIG.classes` | Brute revenue/upkeep multipliers, Guardian happiness, Tender upkeep cuts, Seer egg luck + rarity bonus, Trickster mutation bonus |
 | `CONFIG.economy` | per-rarity revenue/sec and maintenance/sec tables, vitality upkeep discount, happiness→revenue curve, the sulk threshold (below it: zero income, full upkeep), happiness drivers (biome match, crowding, charm, decorations), collect-pool cap, offline cap, starting resources |
 | `CONFIG.traits` | how many boons/burdens each rarity rolls (`countsByRarity`) — effect sizes are in `traits.js` definitions |
-| `CONFIG.rarity` | rarity ladder, spike/downgrade odds, element-diversity bonus, per-rarity UI colors, egg odds |
+| `CONFIG.rarity` | rarity ladder, spike/downgrade odds, per-rarity UI colors, egg odds |
 | `CONFIG.habitats` | base capacity, capacity/quality per level, upgrade cost + exponential growth, new-habitat cost + growth, decoration cost/slots, biome list |
 | `CONFIG.shop` | egg price + creep rate, all exchange rates (deliberately lossy), staff prices/effects |
 | `CONFIG.objectives` | daily count + rewards, milestone thresholds, relic payout |
 | `CONFIG.save` | localStorage key, **schemaVersion**, autosave interval |
 
-`ELEMENTS` and `ARCHETYPES` (identity data, not balance) sit below CONFIG in
-the same file — adding an element there flows into fusion, art, naming,
-habitats, and the log automatically.
+Identity data sits below CONFIG in the same file: `ELEMENT_CYCLE` +
+`ELEMENTS` (icons, palettes), `TYPES`, `CLASSES`, the `CLASS_RECIPES` table,
+`BODY_NAMES` (25 element × type names; the class is the title, e.g.
+"Cinderhound Brute"), and the `LEGACY_*` maps used to remap pre-v5 data.
 
 ## The `generateCreatureArt()` boundary (`js/art.js`)
 
@@ -140,7 +167,7 @@ loads.
    endpoint like `POST /art { prompt }` → image URL. The key never ships to
    the client (see the `// TODO: route through server proxy` marker in art.js).
 2. Replace the body of `generateCreatureArt()` with a fetch to that proxy,
-   building the prompt from `creature.elements / archetype / rarity`, and
+   building the prompt from `creature.element / type / cls / rarity`, and
    resolve `{ kind: 'url', url }`.
 3. Done — no caller changes. `mountArt()` in ui.js already renders both kinds,
    keeps the silhouette on failure, and caches by creature identity.
@@ -150,24 +177,39 @@ loads.
 - The save is the whole state object from `state.js` (resources, creatures,
   habitats, pending fusion, discovery log, upgrades, counters, objectives,
   `lastSeen` for offline progress).
-- Key: `mft_save`; current **schemaVersion: 4**.
+- Key: `mft_save`; current **schemaVersion: 5**.
 - Migrations live in `save.js` (`MIGRATIONS[fromVersion]`), run forward one
   version at a time on load. v1→v2 backfilled creature `traits` (rolled
   deterministically from each creature's seed, so migrated saves match fresh
   rolls); v2→v3 added the discovery/upgrade lifetime counters; v3→v4 added
   the lineage ledger (empty on migration — pre-v4 fusions were never recorded,
-  so existing creatures read as Gen-1 roots). Unknown/newer versions fall back
-  to a fresh game instead of crashing.
+  so existing creatures read as Gen-1 roots); v4→v5 is the 5/5/5 restructure
+  (below). Unknown/newer versions fall back to a fresh game instead of crashing.
+- **v4→v5 remap** (`legacy.js`, maps in `config.js`). Elements: fire/light →
+  Ember, earth/shadow → Stone, air/storm → Frost, water → Tide, nature → Grove;
+  a multi-element creature takes its most common remapped element (ties broken
+  from its seed). Archetypes → body + class: Drake → Wyrm Brute, Wyrm → Wyrm
+  Seer, Serpent → Wyrm Trickster, Fang → Beast Brute, Stag → Beast Guardian,
+  Imp → Beast Trickster, Moth → Avian Seer, Sprite → Avian Tender, Kraken →
+  Crawler Brute, Basilisk → Crawler Guardian, Golem → Construct Guardian,
+  Wisp → Construct Tender. Ids, seeds, stats, tier, rarity and traits are
+  untouched; names are recomputed and the old one kept as `legacyName`. The
+  lineage ledger keeps every record — snapshots are remapped in place — and
+  the discovery log is re-keyed (merging entries that land on one species).
+  Old elemental habitats convert to the matching new biome.
 
 ## Share-string format
 
 ```
-MFT1.<payload>.<checksum>
+MFT2.<payload>.<checksum>
 ```
 
-- `MFT1` — format tag + version (bump to `MFT2` on field changes).
+- `MFT2` — format tag + version (v5 creatures).
 - `<payload>` — base64url-encoded JSON of the creature's identity fields:
-  `seed, elements, archetype, tier, rarity, stats, parents`.
+  `seed, element, type, cls, tier, rarity, stats, parents`.
+- Old `MFT1` strings (`elements, archetype`) still import: they are remapped
+  by the same `legacy.js` code as old saves. Malformed strings of either
+  version fail with a readable reason, never an exception.
 - `<checksum>` — FNV-1a hash of the payload, base36 — catches paste mangling.
 - Share URL = game URL + `#c=<string>`; the hash is parsed on boot, shown in a
   viewer modal, and cleared. Adopting costs essence (scaled by tier + rarity).
@@ -177,6 +219,20 @@ MFT1.<payload>.<checksum>
 - **Future online gallery seam:** `share.js` is the module a gallery would
   build on — POST the same string to a server, list + import identically.
   Nothing in this build assumes a backend exists.
+
+## Tests
+
+```
+node tests/run.mjs
+```
+
+A self-contained Playwright suite (starts its own static server; needs only
+the `playwright` package): smoke across every tab at 390px with zero console
+errors, the 5/5/5 fusion rules (every feeds/overcomes pair, every recipe cell,
+determinism, 125 unique names), the v4→v5 migration with lineage, share
+strings (MFT2, MFT1, garbage), balance guards (no early coin bleed, radiant
+egg gate untouched, eggs never rare+ even with Seers), a 60-fusion playtest,
+and the dist bundle over `file://`. Rebuild the bundle before running it.
 
 ## Security / content rules honored
 
