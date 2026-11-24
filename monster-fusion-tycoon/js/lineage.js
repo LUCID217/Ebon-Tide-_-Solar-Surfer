@@ -12,6 +12,9 @@
 // full creature object. Measured cost: ~0.3 KB of JSON per fusion record, so
 // even a 1000-fusion save spends ~300 KB of its ~5 MB localStorage budget.
 //
+// v5: snapshots carry element/type/cls. The v4→v5 migration remapped older
+// snapshots in place (keeping their old display name as `legacyName`).
+//
 // The ledger is append-only and survives the death/sale of every creature in
 // it. Ancestors that were themselves fused chain back through their own
 // records; ids with no record are roots (eggs, starters, imports).
@@ -27,8 +30,9 @@ export function snapCreature(c) {
     name: c.name || 'Unnamed', // real creatures always carry a name; guard hand-edited saves
     tier: c.tier,
     rarity: c.rarity,
-    elements: [...c.elements],
-    archetype: c.archetype,
+    element: c.element,
+    type: c.type,
+    cls: c.cls,
     seed: c.seed,
     traits: [...(c.traits || [])],
     mutated: !!c.mutated,

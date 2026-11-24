@@ -5,7 +5,7 @@
 // data, so two copies of the same creature always agree.
 // ============================================================================
 
-import { CONFIG, ELEMENTS, ARCHETYPES } from './config.js';
+import { CONFIG, ELEMENTS, TYPE_KEYS, CLASS_KEYS, CLASSES, BODY_NAMES } from './config.js';
 import { mulberry32, pick, weightedPick, freshSeed } from './rng.js';
 import { rollTraits } from './traits.js';
 
@@ -17,38 +17,29 @@ export function nextCreatureId() {
 export function syncIdCounter(n) { idCounter = Math.max(idCounter, n); }
 
 // --- Species naming ---------------------------------------------------------
-// Names are assembled from element syllables + archetype, so every new
-// element-combo × archetype yields a new species name without a lookup table.
-const ELEMENT_SYLLABLES = {
-  fire:   ['Pyro', 'Ember', 'Cinder', 'Scorch'],
-  water:  ['Aqua', 'Tide', 'Brine', 'Mist'],
-  earth:  ['Terra', 'Boulder', 'Clay', 'Quake'],
-  air:    ['Zephyr', 'Gale', 'Sky', 'Breeze'],
-  nature: ['Verdant', 'Bloom', 'Thorn', 'Moss'],
-  shadow: ['Umbra', 'Dusk', 'Gloom', 'Void'],
-  light:  ['Lumen', 'Dawn', 'Halo', 'Glint'],
-  storm:  ['Volt', 'Tempest', 'Arc', 'Thunder'],
-};
+// v5: a species is element × type × class (125 of them). The body name comes
+// from the 5×5 BODY_NAMES table (element × type) and the class is the title,
+// e.g. "Cinderhound Brute". Every individual of a species shares the name —
+// individuality lives in stats, colour/pattern variant, traits and lineage.
 
-/**
- * Deterministic species name from elements + archetype + seed.
- * e.g. ['fire','storm'] + 'Drake' -> "Ember-Volt Drake"
- * NOTE: archetype is STORED on the creature at creation, so extending
- * ARCHETYPES later never renames existing creatures.
- */
-export function speciesName(creature) {
-  const rng = mulberry32(creature.seed ^ 0xbeef);
-  const parts = creature.elements.map(el => pick(rng, ELEMENT_SYLLABLES[el] || ['Odd']));
-  return `${parts.join('-')} ${creature.archetype}`;
+/** Deterministic species name. */
+export function speciesName(c) {
+  const body = BODY_NAMES[c.element]?.[c.type] || 'Oddling';
+  return `${body} ${CLASSES[c.cls]?.label || ''}`.trim();
 }
 
-/**
- * Species signature — the collection-log key. Two creatures with the same
- * sorted element set + archetype are the same "species" regardless of stats.
- */
-export function speciesSignature(creature) {
-  return `${[...creature.elements].sort().join('+')}|${creature.archetype}`;
+/** Species signature — the collection/dex key: "element|type|cls". */
+export function speciesSignature(c) {
+  return `${c.element}|${c.type}|${c.cls}`;
 }
+
+/** Colour/pattern variant (0..2) — part of the cheap variation layer.
+ *  Derived from seed, never stored, so it can't drift. */
+export function variantOf(c) {
+  const r = mulberry32((c.seed >>> 0) ^ 0x7a71)();
+  return r < 0.70 ? 0 : r < 0.92 ? 1 : 2; // 70% standard, 22% dusk, 8% bright
+}
+export const VARIANT_LABELS = ['', 'Dusk variant', 'Bright variant'];
 
 // --- Construction -----------------------------------------------------------
 
@@ -56,23 +47,25 @@ export function speciesSignature(creature) {
  * Create a brand-new base creature (starter or shop egg).
  * Tier 1, single element, stats rolled from seed.
  */
-export function makeBaseCreature({ element = null, rarity = null, seed = null } = {}) {
+export function makeBaseCreature({ element = null, rarity = null, seed = null, rarityWeights = null } = {}) {
   const s = seed ?? freshSeed();
   const rng = mulberry32(s);
   const el = element ?? pick(rng, Object.keys(ELEMENTS));
-  const rar = rarity ?? weightedPick(rng, CONFIG.rarity.eggWeights);
+  const rar = rarity ?? weightedPick(rng, rarityWeights || CONFIG.rarity.eggWeights);
   const rarityIdx = CONFIG.rarity.order.indexOf(rar);
   // Base stats 20..50, nudged up by rarity (+8 per rarity step).
   const stat = () => Math.round(20 + rng() * 30 + rarityIdx * 8);
+  const stats = { power: stat(), charm: stat(), vitality: stat() };
   const c = {
     id: nextCreatureId(),
     seed: s,
-    elements: [el],
-    archetype: pick(rng, ARCHETYPES),
+    element: el,
+    type: pick(rng, TYPE_KEYS),
+    cls: pick(rng, CLASS_KEYS),
     tier: 1,
     rarity: rar,
-    stats: { power: stat(), charm: stat(), vitality: stat() },
-    parents: null,           // [signatureA, signatureB] for hybrids; null for base
+    stats,
+    parents: null,           // [nameA, nameB] for hybrids; null for base
     habitatId: null,         // which habitat it lives in (null = reserve/pen)
     bornAt: Date.now(),
     fusedCount: 0,           // times used as a fusion parent (flavor stat)
@@ -86,14 +79,16 @@ export function makeBaseCreature({ element = null, rarity = null, seed = null } 
 
 /** Coins/sec this creature generates BEFORE happiness/habitat multipliers. */
 export function baseRevenuePerSec(c) {
-  return CONFIG.economy.rarityRevenuePerSec[c.rarity] * (c.stats.power / 100);
+  const classMult = CONFIG.classes[c.cls]?.revenueMult ?? 1; // Brutes earn big
+  return CONFIG.economy.rarityRevenuePerSec[c.rarity] * (c.stats.power / 100) * classMult;
 }
 
 /** Coins/sec upkeep. High vitality discounts maintenance (up to 50%). */
 export function maintenancePerSec(c) {
   const base = CONFIG.economy.rarityMaintenancePerSec[c.rarity];
   const discount = 1 - CONFIG.economy.vitalityMaintDiscount * Math.min(c.stats.vitality, 100) / 100;
-  return base * discount;
+  const classMult = CONFIG.classes[c.cls]?.maintMult ?? 1; // ...and eat big
+  return base * discount * classMult;
 }
 
 export function rarityColor(c) {

@@ -14,6 +14,7 @@ import { CONFIG } from './config.js';
 import { S, creaturesInHabitat, habitatCapacity, earnCoins, spend } from './state.js';
 import { baseRevenuePerSec, maintenancePerSec } from './creature.js';
 import { ownMults, auraOn } from './traits.js';
+const CL = CONFIG.classes;
 
 const E = CONFIG.economy;
 const H = CONFIG.habitats;
@@ -23,10 +24,12 @@ let habitatIdCounter = 1;
 // --- Habitats ----------------------------------------------------------------
 
 const BIOME_NAMES = {
-  meadow: 'Meadow Pen', fire: 'Ember Ridge', water: 'Tidal Cove', earth: 'Stone Hollow',
-  air: 'Skyloft Roost', nature: 'Verdant Grove', shadow: 'Gloom Warren', light: 'Dawn Terrace',
-  storm: 'Tempest Spire',
+  meadow: 'Meadow Pen', ember: 'Ember Ridge', stone: 'Stone Hollow', frost: 'Frost Hollow',
+  tide: 'Tidal Cove', grove: 'Verdant Grove',
 };
+
+/** Display name for a biome (also used when migrating old habitats). */
+export function biomeName(biome) { return BIOME_NAMES[biome] || biome; }
 
 export function makeHabitat(biome) {
   const id = `h${habitatIdCounter++}`;
@@ -119,19 +122,37 @@ export function isExotic(c) {
 }
 
 /**
- * Themed exhibit: 2+ residents who ALL share at least one element earn a
+ * Themed exhibit: 2+ residents who ALL share the same element earn a
  * habitat-wide revenue bonus. Rewards curated placement over dumping.
  * Returns the shared element key, or null.
  */
 export function themedExhibitElement(habitatId) {
   const residents = creaturesInHabitat(habitatId);
   if (residents.length < 2) return null;
-  let shared = [...residents[0].elements];
-  for (const c of residents.slice(1)) {
-    shared = shared.filter(e => c.elements.includes(e));
-    if (!shared.length) return null;
+  const el = residents[0].element;
+  return residents.every(c => c.element === el) ? el : null;
+}
+
+// --- Class effects that depend on placement ----------------------------------
+
+/** Guardian happiness: +N to every resident (itself included) per Guardian
+ *  living in the habitat. Returns { amount, count }. */
+export function guardianHappiness(c) {
+  if (c.habitatId === null) return { amount: 0, count: 0 };
+  const count = creaturesInHabitat(c.habitatId).filter(m => m.cls === 'guardian').length;
+  return { amount: count * CL.guardian.habitatHappiness, count };
+}
+
+/** Tender upkeep multiplier on c: own Tender discount, plus each OTHER
+ *  Tender in the same habitat trims c's upkeep a little. */
+export function tenderMaintMult(c) {
+  let m = c.cls === 'tender' ? CL.tender.ownMaintMult : 1;
+  if (c.habitatId !== null) {
+    for (const mate of creaturesInHabitat(c.habitatId)) {
+      if (mate.id !== c.id && mate.cls === 'tender') m *= CL.tender.habitatMaintMult;
+    }
   }
-  return shared[0];
+  return m;
 }
 
 /** Coins received for selling/retiring a creature (rarity + tier scaled). */
@@ -174,15 +195,17 @@ export function happinessBreakdown(c) {
   }
   const h = S.habitats[c.habitatId];
   const parts = [['Base contentment', E.happinessBase]];
-  parts.push(c.elements.includes(h.biome)
+  parts.push(c.element === h.biome
     ? [`Biome match (${h.biome})`, E.happinessElementMatch]
-    : [`No biome match (wants ${c.elements.join('/')})`, 0]);
+    : [`No biome match (wants ${c.element})`, 0]);
   parts.push(['Charm', Math.round(c.stats.charm * E.happinessCharmFactor)]);
   if (h.decorations) parts.push([`Decorations ×${h.decorations}`, h.decorations * E.happinessDecorPer]);
   if (S.upgrades.groundskeeper) parts.push(['Groundskeeper', CONFIG.shop.groundskeeperHappiness]);
   const fill = creaturesInHabitat(c.habitatId).length / habitatCapacity(h);
   const crowd = Math.round(E.happinessCrowdPenalty * Math.max(0, (fill - 0.5) * 2));
   if (crowd) parts.push(['Crowded habitat', -crowd]);
+  const guard = guardianHappiness(c);
+  if (guard.amount) parts.push([`Guardian${guard.count > 1 ? 's' : ''} on watch ×${guard.count}`, guard.amount]);
   const aura = auraOn(c).happiness;
   if (aura) parts.push(['Habitat-mates’ auras', aura]);
   const own = ownMults(c).happiness;
@@ -221,7 +244,7 @@ export function revenuePerSec(c) {
  *  Charged everywhere EXCEPT sanctuary habitats — the meadow feeds its own. */
 export function upkeepPerSec(c) {
   if (inSanctuary(c)) return 0;
-  return maintenancePerSec(c) * ownMults(c).maint;
+  return maintenancePerSec(c) * ownMults(c).maint * tenderMaintMult(c);
 }
 
 /** Full breakdown for the UI: { revenue, maintenance, net } per second. */

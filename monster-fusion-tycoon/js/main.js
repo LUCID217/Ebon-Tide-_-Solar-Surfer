@@ -7,7 +7,7 @@
 import { CONFIG } from './config.js';
 import { S } from './state.js';
 import { loadGame, saveGame, wipeSave, storageOk } from './save.js';
-import { makeBaseCreature } from './creature.js';
+import { makeBaseCreature, speciesSignature } from './creature.js';
 import { ensureStarterHabitat, applyOfflineProgress, economyTick, placeCreature, totalPerSec } from './economy.js';
 import { tryResolveFusion, registerDiscovery } from './fusion.js';
 import {
@@ -30,9 +30,12 @@ function setupFreshGame() {
   ensureStarterHabitat();
   // Three starters: two sharing a habitat, one in reserve — teaches placement.
   const starters = [
-    makeBaseCreature({ element: 'fire' }),
-    makeBaseCreature({ element: 'nature' }),
-    makeBaseCreature({ element: 'water' }),
+    // Starters are always common: commons bill no upkeep anywhere, so the
+    // one left in reserve can't start a slow coin bleed (with Brutes at
+    // ×1.6 upkeep, an uncommon reserve starter would).
+    makeBaseCreature({ element: 'ember', rarity: 'common' }),
+    makeBaseCreature({ element: 'grove', rarity: 'common' }),
+    makeBaseCreature({ element: 'tide', rarity: 'common' }),
   ];
   const homeId = S.habitatOrder[0];
   for (const c of starters) {
@@ -126,7 +129,7 @@ function startLoop() {
     // Resolve a finished fusion (deterministic + local; art loads after).
     const child = tryResolveFusion();
     if (child) {
-      const isNew = !!S.discovered && S.discovered[`${[...child.elements].sort().join('+')}|${child.archetype}`]?.count === 1;
+      const isNew = S.discovered?.[speciesSignature(child)]?.count === 1;
       onFusionResolved(child, isNew);
       saveGame();
     }

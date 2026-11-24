@@ -22,18 +22,25 @@ export const CONFIG = {
     statVariance: 0.25,         // stats inherit parent avg ±25% (uniform)
     statTierBonus: 0.06,        // +6% flat stat growth per child tier (fusion should trend upward)
     statCap: 999,               // absolute stat ceiling
-
-    maxElements: 3,             // hybrids carry at most this many elements
-    mutationChance: 0.12,       // chance a fusion gains an element NEITHER parent has (keeps the tree open-ended)
-    archetypeShiftChance: 0.22, // chance the child's body archetype differs from both parents
     maxTier: 12,                // creatures at this tier can no longer be fused (endgame trophies)
 
-    // Volatile pairings: fusing OPPOSING elements is unstable — higher
-    // mutation odds and a flat stat surge. Rewards breeding across the
-    // elemental wheel instead of stacking one element forever.
-    volatilePairs: [['fire', 'water'], ['light', 'shadow'], ['earth', 'air']],
-    volatileMutationBonus: 0.25, // added to mutationChance when a pair opposes
-    volatileStatBonus: 0.10,     // ×1.10 to all child stats per opposing pair
+    // --- 5/5/5 axis rules (schema v5). Each axis resolves independently. ---
+    // ELEMENT: same → kept. "Feeds" pair (A feeds B, next on the cycle) →
+    // child takes the FED element + a stat bonus. "Overcomes" pair (two steps
+    // apart) → volatile: dice between the parents, with a chance to mutate
+    // into a third element. On the 5-cycle every distinct pair is one or the
+    // other, so `otherPairWeights` is only a fallback for unknown elements.
+    feedStatBonus: 0.08,         // ×1.08 to all child stats on a feeds pairing
+    volatileOvercomerWeight: 0.5,// overcomes pair: chance the child keeps the OVERCOMING parent's element
+    volatileMutationChance: 0.20,// overcomes pair: chance to mutate into one of the other 3 elements
+    volatileStatBonus: 0.10,     // ×1.10 to all child stats on a volatile pairing
+    volatileUpgradeBonus: 0.05,  // + rarity upgradeChance on a volatile pairing (replaces old element-diversity bonus)
+    baseMutationChance: 0.04,    // any pairing: small chance the element mutates anyway (keeps surprises alive)
+    otherPairWeights: [0.5, 0.5],// fallback weighted dice [parentA, parentB]
+    // TYPE: same → kept. Otherwise 60/40 in favour of the RARER parent
+    // (higher rarity; tie → higher tier; full tie → coin flip).
+    typeRarerParentWeight: 0.60,
+    // CLASS: resolved by the learnable recipe table CLASS_RECIPES below.
   },
 
   // --------------------------------------------------------------------------
@@ -94,6 +101,21 @@ export const CONFIG = {
   },
 
   // --------------------------------------------------------------------------
+  // CLASSES — gear + tycoon role. Every creature has exactly one class.
+  // Numbers here are the whole effect; economy.js / fusion.js / shop.js read
+  // them through small helpers and never hard-code class behaviour.
+  // --------------------------------------------------------------------------
+  classes: {
+    brute:     { revenueMult: 1.30, maintMult: 1.60 },  // earns big, eats big
+    guardian:  { habitatHappiness: 6 },                 // +happiness to EVERY resident of its habitat (itself included)
+    tender:    { ownMaintMult: 0.60, habitatMaintMult: 0.90 }, // −40% own upkeep, −10% upkeep for habitat-mates
+    seer:      { fusionUpgradeBonus: 0.04,              // + rarity upgradeChance per Seer parent
+                 eggUncommonWeightPer: 5,               // + uncommon weight on base eggs per Seer ON EXHIBIT...
+                 eggUncommonWeightCap: 15 },            // ...capped. Eggs stay common/uncommon only — never an upkeep bomb.
+    trickster: { fusionMutationBonus: 0.08 },           // + element mutation chance per Trickster parent
+  },
+
+  // --------------------------------------------------------------------------
   // RARITY — odds, spikes, colors
   // --------------------------------------------------------------------------
   rarity: {
@@ -102,7 +124,8 @@ export const CONFIG = {
     upgradeChance: 0.20,        // chance to spike +1 tier
     doubleUpgradeChance: 0.04,  // chance to spike +2 tiers (checked first)
     downgradeChance: 0.10,      // chance to drop -1 (fusion isn't free progress)
-    elementDiversityBonus: 0.05,// + to upgradeChance per element the child has beyond 1
+    // (v5: the old per-element diversity bonus is gone — creatures carry one
+    //  element now. See fusion.volatileUpgradeBonus + classes.seer instead.)
     colors: {                   // UI accent per rarity (borders, glows, log entries)
       common: '#9aa5b1', uncommon: '#4caf7d', rare: '#4a90d9',
       epic: '#a45de2', legendary: '#e8a33d', mythic: '#e84d6f',
@@ -141,7 +164,7 @@ export const CONFIG = {
     sanctuaryBiomes: ['meadow'],
     sanctuaryExoticRevenueMult: 0.5, // rare+ earn this fraction inside a sanctuary
     // Biomes a habitat can be built as. 'meadow' is neutral (no element match bonus).
-    biomes: ['meadow', 'fire', 'water', 'earth', 'air', 'nature', 'shadow', 'light', 'storm'],
+    biomes: ['meadow', 'ember', 'stone', 'frost', 'tide', 'grove'],
   },
 
   // --------------------------------------------------------------------------
@@ -190,28 +213,121 @@ export const CONFIG = {
   // --------------------------------------------------------------------------
   save: {
     key: 'mft_save',            // localStorage key
-    schemaVersion: 4,           // bump + add a migration in save.js when shape changes
+    schemaVersion: 5,           // bump + add a migration in save.js when shape changes
                                 // v2: creatures gained `traits` (rolled from seed)
                                 // v3: counters gained discoveries/habitatUpgrades
                                 // v4: lineage ledger (childId -> parent snapshots)
+                                // v5: 5/5/5 restructure — elements[]+archetype → element/type/cls
     autosaveSeconds: 20,
   },
 };
 
 // ----------------------------------------------------------------------------
-// ELEMENTS — identity data (not balance): display + color per element.
-// Adding an element here automatically flows into fusion, art, habitats, log.
+// ELEMENTS — the 5-element cycle (identity data, not balance).
+//   Ember → Stone → Frost → Tide → Grove → Ember
+//   FEEDS:     each element feeds the NEXT one   (ember feeds stone, …)
+//   OVERCOMES: each element overcomes the one TWO steps ahead
+//              (ember > frost, stone > tide, frost > grove, tide > ember, grove > stone)
+// `palette` is the 3–4 colour flat/2-tone set the layered art uses:
+//   [base, shade, accent, highlight].
 // ----------------------------------------------------------------------------
+export const ELEMENT_CYCLE = ['ember', 'stone', 'frost', 'tide', 'grove'];
+
 export const ELEMENTS = {
-  fire:   { icon: '🔥', color: '#e8603c', dark: '#7a2812', label: 'Fire' },
-  water:  { icon: '💧', color: '#3c8fe8', dark: '#123f7a', label: 'Water' },
-  earth:  { icon: '⛰️', color: '#a07648', dark: '#4d3417', label: 'Earth' },
-  air:    { icon: '🌪️', color: '#8fd0dd', dark: '#3a6a75', label: 'Air' },
-  nature: { icon: '🌿', color: '#57b452', dark: '#1f5a1c', label: 'Nature' },
-  shadow: { icon: '🌑', color: '#6b5a91', dark: '#241b3d', label: 'Shadow' },
-  light:  { icon: '✨', color: '#e8d05c', dark: '#8a7a1a', label: 'Light' },
-  storm:  { icon: '⚡', color: '#7c6ce8', dark: '#2c2079', label: 'Storm' },
+  ember: { icon: '🔥', label: 'Ember', color: '#e8603c', dark: '#7a2812', palette: ['#e8603c', '#a83a1e', '#ffc04d', '#ffe3b0'] },
+  stone: { icon: '⛰️', label: 'Stone', color: '#a08a6a', dark: '#4d3f2a', palette: ['#a08a6a', '#6b5a42', '#d9c9a3', '#f0e6cf'] },
+  frost: { icon: '❄️', label: 'Frost', color: '#8fd0e8', dark: '#2f6a80', palette: ['#8fd0e8', '#4f93b0', '#e8f8ff', '#ffffff'] },
+  tide:  { icon: '🌊', label: 'Tide',  color: '#3c8fe8', dark: '#123f7a', palette: ['#3c8fe8', '#1f5aa8', '#5fe0d0', '#c8f2ff'] },
+  grove: { icon: '🌿', label: 'Grove', color: '#57b452', dark: '#1f5a1c', palette: ['#57b452', '#2f7a2b', '#e8d05c', '#d6f5c0'] },
 };
 
-// Body archetypes — drive both art silhouettes and species naming.
-export const ARCHETYPES = ['Drake', 'Wisp', 'Golem', 'Serpent', 'Sprite', 'Fang', 'Moth', 'Kraken', 'Stag', 'Imp', 'Wyrm', 'Basilisk'];
+/** The element that `el` feeds (next on the cycle). */
+export function feedsTarget(el) {
+  const i = ELEMENT_CYCLE.indexOf(el);
+  return i < 0 ? null : ELEMENT_CYCLE[(i + 1) % 5];
+}
+/** The element that `el` overcomes (two steps ahead). */
+export function overcomesTarget(el) {
+  const i = ELEMENT_CYCLE.indexOf(el);
+  return i < 0 ? null : ELEMENT_CYCLE[(i + 2) % 5];
+}
+
+// ----------------------------------------------------------------------------
+// CREATURE TYPES — body bases (art silhouettes + naming).
+// ----------------------------------------------------------------------------
+export const TYPES = {
+  beast:     { icon: '🐾', label: 'Beast' },
+  wyrm:      { icon: '🐉', label: 'Wyrm' },
+  avian:     { icon: '🪶', label: 'Avian' },
+  crawler:   { icon: '🦂', label: 'Crawler' },
+  construct: { icon: '🗿', label: 'Construct' },
+};
+export const TYPE_KEYS = Object.keys(TYPES);
+
+// ----------------------------------------------------------------------------
+// CLASSES — gear set + tycoon role (numbers live in CONFIG.classes).
+// ----------------------------------------------------------------------------
+export const CLASSES = {
+  brute:     { icon: '🪓', label: 'Brute',     role: 'High earnings, high upkeep' },
+  guardian:  { icon: '🛡️', label: 'Guardian',  role: 'Raises habitat happiness' },
+  tender:    { icon: '🧺', label: 'Tender',    role: 'Lowers upkeep' },
+  seer:      { icon: '🔮', label: 'Seer',      role: 'Better egg and rare-find luck' },
+  trickster: { icon: '🎭', label: 'Trickster', role: 'Higher mutation chance' },
+};
+export const CLASS_KEYS = Object.keys(CLASSES);
+
+// ----------------------------------------------------------------------------
+// CLASS RECIPES — the learnable 5×5 table. Symmetric (parent order never
+// matters) and balanced: same class breeds true, and every class is the
+// result of exactly two mixed pairings. Rule of thumb for players, with the
+// classes in ring order Brute → Guardian → Tender → Seer → Trickster:
+//   • neighbours make the class OPPOSITE them on the ring
+//   • one-apart pairs make the class BETWEEN them
+// Tune freely — fusion.js only ever reads this table.
+// ----------------------------------------------------------------------------
+export const CLASS_RECIPES = {
+  brute:     { brute: 'brute',     guardian: 'seer',      tender: 'guardian',  seer: 'trickster', trickster: 'tender' },
+  guardian:  { brute: 'seer',      guardian: 'guardian',  tender: 'trickster', seer: 'tender',    trickster: 'brute' },
+  tender:    { brute: 'guardian',  guardian: 'trickster', tender: 'tender',    seer: 'brute',     trickster: 'seer' },
+  seer:      { brute: 'trickster', guardian: 'tender',    tender: 'brute',     seer: 'seer',      trickster: 'guardian' },
+  trickster: { brute: 'tender',    guardian: 'brute',     tender: 'seer',      seer: 'guardian',  trickster: 'trickster' },
+};
+
+// ----------------------------------------------------------------------------
+// SPECIES NAMES — 25 body names (element × type); the class is the title.
+// 25 × 5 classes = the 125 base species, e.g. "Cinderhound Brute".
+// ----------------------------------------------------------------------------
+export const BODY_NAMES = {
+  ember: { beast: 'Cinderhound', wyrm: 'Scorchcoil', avian: 'Flarewing', crawler: 'Ashmite',    construct: 'Kilnheart' },
+  stone: { beast: 'Cragmaw',     wyrm: 'Bouldrake',  avian: 'Slatebeak', crawler: 'Gravelback', construct: 'Pillarborn' },
+  frost: { beast: 'Rimefang',    wyrm: 'Glaciwyrm',  avian: 'Sleetwing', crawler: 'Icetick',    construct: 'Shardsentry' },
+  tide:  { beast: 'Surfmane',    wyrm: 'Brinecoil',  avian: 'Spraywing', crawler: 'Reefcrab',   construct: 'Coralforge' },
+  grove: { beast: 'Mossback',    wyrm: 'Vinecoil',   avian: 'Leafwing',  crawler: 'Thornmite',  construct: 'Barkwarden' },
+};
+
+// ----------------------------------------------------------------------------
+// LEGACY (schema ≤4 / MFT1 share strings) → 5/5/5 remap. Used by the v4→v5
+// save migration AND by share-string import (see legacy.js), so both agree.
+// ----------------------------------------------------------------------------
+export const LEGACY_ELEMENT_MAP = {
+  fire: 'ember', light: 'ember',     // heat and sunfire
+  earth: 'stone', shadow: 'stone',   // deep rock, caves
+  air: 'frost', storm: 'frost',      // high cold skies
+  water: 'tide',
+  nature: 'grove',
+};
+export const LEGACY_ARCHETYPE_MAP = {
+  // archetype: [type, class]
+  Drake:    ['wyrm', 'brute'],
+  Wyrm:     ['wyrm', 'seer'],
+  Serpent:  ['wyrm', 'trickster'],
+  Fang:     ['beast', 'brute'],
+  Stag:     ['beast', 'guardian'],
+  Imp:      ['beast', 'trickster'],
+  Moth:     ['avian', 'seer'],
+  Sprite:   ['avian', 'tender'],
+  Kraken:   ['crawler', 'brute'],
+  Basilisk: ['crawler', 'guardian'],
+  Golem:    ['construct', 'guardian'],
+  Wisp:     ['construct', 'tender'],
+};

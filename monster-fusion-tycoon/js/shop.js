@@ -19,11 +19,26 @@ export function eggPrice() {
   return Math.round(SH.eggCostCoins * Math.pow(SH.eggCostGrowth, S.counters.eggsBought));
 }
 
+/**
+ * Seer egg luck: each Seer ON EXHIBIT (placed in any habitat) shifts base-egg
+ * odds toward uncommon, capped. Eggs still never hatch rare+ — the shop must
+ * never hand a new player an upkeep bomb, and radiant eggs are untouched.
+ */
+export function eggWeights() {
+  const cfg = CONFIG.classes.seer;
+  const seers = Object.values(S.creatures).filter(c => c.cls === 'seer' && c.habitatId !== null).length;
+  const bump = Math.min(cfg.eggUncommonWeightCap, seers * cfg.eggUncommonWeightPer);
+  const w = { ...CONFIG.rarity.eggWeights };
+  w.uncommon += bump;
+  w.common = Math.max(0, w.common - bump);
+  return { weights: w, seers, bump };
+}
+
 /** Buy a base egg → hatches instantly into a random tier-1 creature (reserve). */
 export function buyEgg(element = null) {
   if (!spend({ coins: eggPrice() })) return { ok: false, why: 'Not enough coins.' };
   S.counters.eggsBought++;
-  const c = makeBaseCreature({ element });
+  const c = makeBaseCreature({ element, rarityWeights: eggWeights().weights });
   S.creatures[c.id] = c;
   const isNew = registerDiscovery(c);
   return { ok: true, creature: c, isNew };
