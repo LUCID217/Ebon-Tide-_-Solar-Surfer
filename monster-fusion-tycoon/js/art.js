@@ -3,8 +3,9 @@
 //
 // All creature visuals come from generateCreatureArt(creature), which returns
 // a Promise. Today it resolves to procedurally-drawn SVG markup derived
-// deterministically from the creature's own data (elements, archetype, rarity,
-// seed). No network, no external assets.
+// deterministically from the creature's own data (element, type, class,
+// rarity, seed), composed in layers: body → element palette → class gear.
+// No network, no external assets.
 //
 // SWAPPING IN A REAL IMAGE API LATER (e.g. xAI Grok Imagine):
 //   - Keep the signature: generateCreatureArt(creature) -> Promise<ArtResult>
@@ -20,7 +21,12 @@
 import { ELEMENTS } from './config.js';
 import { mulberry32 } from './rng.js';
 
-const artCache = new Map(); // seed+rarity -> resolved ArtResult (art is deterministic, cache freely)
+const artCache = new Map(); // identity key -> resolved ArtResult (art is deterministic, cache freely)
+
+/** Cache key = everything the art depends on. */
+function artKey(c) {
+  return `${c.seed}|${c.rarity}|${c.element}|${c.type}|${c.cls}|${c.tier}`;
+}
 
 /**
  * Async art boundary. Resolves with { kind:'svg', svg } for the stub.
@@ -28,7 +34,7 @@ const artCache = new Map(); // seed+rarity -> resolved ArtResult (art is determi
  * the pending state — exactly what a real image API will need.
  */
 export function generateCreatureArt(creature) {
-  const key = `${creature.seed}|${creature.rarity}|${creature.elements.join(',')}|${creature.archetype}`;
+  const key = artKey(creature);
   if (artCache.has(key)) return Promise.resolve(artCache.get(key));
   return new Promise(resolve => {
     // Small artificial latency keeps the async path honest in the UI.
@@ -50,156 +56,215 @@ export function silhouetteSVG() {
 }
 
 // ---------------------------------------------------------------------------
-// Procedural drawing. Everything below is the stub implementation and can be
-// deleted wholesale when a real image API replaces it.
+// LAYERED PROCEDURAL ART (stub). 15 parts → 125 species:
+//
+//   1. BODY    (5, by type)    — silhouette + anchor points, drawn in palette slots
+//   2. PALETTE (5, by element) — fills those slots: base / shade / accent / highlight
+//   3. GEAR    (5, by class)   — props hung on the body's anchors
+//
+// Bodies never name a colour; they paint with `p.base`, `p.shade`, `p.accent`,
+// `p.hi` and outline with `p.line`. That keeps the three axes independent so a
+// final style (vinyl toy OR papercut/sticker) can drop in by replacing BODIES,
+// GEAR and paletteFor() — each part is one function, nothing else changes.
+//
+// Style rules baked in for 64–96px readability: thick outlines (OUTLINE),
+// flat fills plus one shade tone, no gradients, max 4 colours per element.
+//
+// The variation layer stays cheap: colour variant (palette shift), pattern
+// (none / spots / stripes), eye count, rarity aura, tier notches — all from
+// the seed, never changing the silhouette, so a species always reads as itself.
 // ---------------------------------------------------------------------------
 
+const OUTLINE = 3.2;
+
+/** Element palette, shifted by colour variant (0 std, 1 dusk, 2 bright). */
+export function paletteFor(element, variant = 0) {
+  const e = ELEMENTS[element] || { palette: ['#999', '#666', '#ccc', '#eee'], dark: '#333' };
+  const [base, shade, accent, hi] = e.palette;
+  if (variant === 1) return { base: shade, shade: e.dark, accent, hi: base, line: '#14161c' };
+  if (variant === 2) return { base: accent, shade: base, accent: hi, hi: '#ffffff', line: e.dark };
+  return { base, shade, accent, hi, line: e.dark };
+}
+
+const st = p => `stroke="${p.line}" stroke-width="${OUTLINE}" stroke-linejoin="round" stroke-linecap="round"`;
+
+// --- 1. BODIES -------------------------------------------------------------
+// Each returns { svg, head:{x,y,r}, hand:{x,y}, top:{x,y}, belly:{cx,cy,rx,ry} }.
+// Anchors let gear and faces sit correctly on every body.
+export const BODIES = {
+  beast: p => ({
+    svg: `
+      <path d="M74 60 Q90 52 86 36" fill="none" ${st(p)} stroke-width="6"/>
+      <path d="M74 60 Q90 52 86 36" fill="none" stroke="${p.shade}" stroke-width="3" stroke-linecap="round"/>
+      <rect x="30" y="66" width="9" height="20" rx="3" fill="${p.shade}" ${st(p)}/>
+      <rect x="61" y="66" width="9" height="20" rx="3" fill="${p.shade}" ${st(p)}/>
+      <ellipse cx="52" cy="60" rx="26" ry="17" fill="${p.base}" ${st(p)}/>
+      <rect x="40" y="68" width="9" height="19" rx="3" fill="${p.base}" ${st(p)}/>
+      <rect x="54" y="68" width="9" height="19" rx="3" fill="${p.base}" ${st(p)}/>
+      <path d="M22 30 L26 14 L34 26 Z M42 26 L48 13 L50 28 Z" fill="${p.shade}" ${st(p)}/>
+      <circle cx="35" cy="38" r="15" fill="${p.base}" ${st(p)}/>
+      <ellipse cx="29" cy="45" rx="7" ry="5" fill="${p.hi}" ${st(p)} stroke-width="2"/>`,
+    head: { x: 35, y: 36, r: 15 }, hand: { x: 74, y: 70 }, top: { x: 36, y: 22 },
+    belly: { cx: 54, cy: 60, rx: 22, ry: 14 },
+  }),
+  wyrm: p => ({
+    svg: `
+      <path d="M18 84 Q50 98 80 82 Q90 72 76 66 Q50 76 30 66 Q16 70 18 84 Z" fill="${p.shade}" ${st(p)}/>
+      <path d="M28 66 Q50 76 74 64 Q80 52 68 48 Q50 56 36 48 Q24 52 28 66 Z" fill="${p.base}" ${st(p)}/>
+      <path d="M38 50 Q50 54 64 46 Q66 38 58 34 L44 36 Q36 40 38 50 Z" fill="${p.base}" ${st(p)}/>
+      <path d="M40 22 L36 8 L46 18 Z M60 22 L64 8 L54 18 Z" fill="${p.accent}" ${st(p)}/>
+      <ellipse cx="50" cy="28" rx="15" ry="12" fill="${p.base}" ${st(p)}/>
+      <path d="M40 60 Q50 64 62 58" fill="none" stroke="${p.hi}" stroke-width="2.5" stroke-linecap="round"/>`,
+    head: { x: 50, y: 27, r: 13 }, hand: { x: 80, y: 62 }, top: { x: 50, y: 15 },
+    belly: { cx: 50, cy: 64, rx: 22, ry: 10 },
+  }),
+  avian: p => ({
+    svg: `
+      <path d="M40 82 L34 92 M58 82 L64 92" ${st(p)} stroke="${p.accent}" stroke-width="4"/>
+      <path d="M50 78 L40 94 L50 88 L60 94 Z" fill="${p.shade}" ${st(p)}/>
+      <path d="M26 54 Q8 44 10 26 Q24 36 34 46 Z" fill="${p.shade}" ${st(p)}/>
+      <path d="M74 54 Q92 44 90 26 Q76 36 66 46 Z" fill="${p.shade}" ${st(p)}/>
+      <ellipse cx="50" cy="60" rx="22" ry="22" fill="${p.base}" ${st(p)}/>
+      <ellipse cx="50" cy="66" rx="12" ry="13" fill="${p.hi}"/>
+      <circle cx="50" cy="34" r="14" fill="${p.base}" ${st(p)}/>
+      <path d="M46 40 L50 50 L54 40 Z" fill="${p.accent}" ${st(p)} stroke-width="2"/>`,
+    head: { x: 50, y: 31, r: 14 }, hand: { x: 78, y: 60 }, top: { x: 50, y: 20 },
+    belly: { cx: 50, cy: 62, rx: 18, ry: 18 },
+  }),
+  crawler: p => ({
+    svg: `
+      ${[24, 36, 64, 76].map((x, i) => `<path d="M${x} 66 L${x + (i < 2 ? -10 : 10)} 84" ${st(p)} stroke-width="5"/>
+      <path d="M${x} 66 L${x + (i < 2 ? -10 : 10)} 84" stroke="${p.shade}" stroke-width="2.5" stroke-linecap="round"/>`).join('')}
+      <path d="M32 40 L22 28 L30 36 M68 40 L78 28 L70 36" fill="none" ${st(p)} stroke-width="4"/>
+      <ellipse cx="50" cy="62" rx="34" ry="17" fill="${p.base}" ${st(p)}/>
+      <path d="M22 60 Q50 44 78 60" fill="none" stroke="${p.shade}" stroke-width="3"/>
+      <path d="M28 68 Q50 56 72 68" fill="none" stroke="${p.shade}" stroke-width="3"/>
+      <ellipse cx="50" cy="44" rx="16" ry="11" fill="${p.base}" ${st(p)}/>
+      <path d="M42 52 L38 58 M58 52 L62 58" ${st(p)} stroke="${p.accent}" stroke-width="3"/>`,
+    head: { x: 50, y: 43, r: 11 }, hand: { x: 84, y: 56 }, top: { x: 50, y: 33 },
+    belly: { cx: 50, cy: 62, rx: 30, ry: 14 },
+  }),
+  construct: p => ({
+    svg: `
+      <rect x="34" y="76" width="12" height="16" rx="2" fill="${p.shade}" ${st(p)}/>
+      <rect x="54" y="76" width="12" height="16" rx="2" fill="${p.shade}" ${st(p)}/>
+      <rect x="14" y="46" width="13" height="30" rx="4" fill="${p.shade}" ${st(p)}/>
+      <rect x="73" y="46" width="13" height="30" rx="4" fill="${p.shade}" ${st(p)}/>
+      <rect x="26" y="42" width="48" height="38" rx="6" fill="${p.base}" ${st(p)}/>
+      <rect x="35" y="16" width="30" height="26" rx="4" fill="${p.base}" ${st(p)}/>
+      <circle cx="32" cy="48" r="2" fill="${p.line}"/><circle cx="68" cy="48" r="2" fill="${p.line}"/>
+      <circle cx="32" cy="74" r="2" fill="${p.line}"/><circle cx="68" cy="74" r="2" fill="${p.line}"/>
+      <rect x="42" y="54" width="16" height="14" rx="3" fill="${p.accent}" ${st(p)} stroke-width="2"/>`,
+    head: { x: 50, y: 28, r: 12 }, hand: { x: 80, y: 76 }, top: { x: 50, y: 16 },
+    belly: { cx: 50, cy: 61, rx: 22, ry: 17 },
+  }),
+};
+
+// --- 3. GEAR ----------------------------------------------------------------
+// Class props, positioned only via body anchors. Gear uses the element palette
+// for trims so it always harmonises with the body underneath.
+export const GEAR = {
+  brute: (p, a) => `
+    <g transform="translate(${a.hand.x} ${a.hand.y})">
+      <rect x="-2.5" y="-26" width="5" height="30" rx="2" fill="#8a6a44" ${st(p)} stroke-width="2.4"/>
+      <path d="M2 -26 Q16 -22 14 -10 Q8 -14 2 -12 Z" fill="#cfd5de" ${st(p)} stroke-width="2.4"/>
+    </g>
+    <path d="M${a.head.x - a.head.r} ${a.head.y - a.head.r * 0.35} L${a.head.x + a.head.r} ${a.head.y - a.head.r * 0.35}" stroke="${p.accent}" stroke-width="4.5" stroke-linecap="round"/>`,
+  guardian: (p, a) => `
+    <g transform="translate(${a.hand.x - 4} ${a.hand.y - 8})">
+      <path d="M-10 -12 L10 -12 L10 2 Q10 12 0 16 Q-10 12 -10 2 Z" fill="${p.accent}" ${st(p)} stroke-width="2.6"/>
+      <path d="M0 -8 L0 12 M-7 0 L7 0" stroke="${p.shade}" stroke-width="2.4" stroke-linecap="round"/>
+    </g>
+    <path d="M${a.top.x - 10} ${a.top.y + 6} Q${a.top.x} ${a.top.y - 8} ${a.top.x + 10} ${a.top.y + 6} Z" fill="#cfd5de" ${st(p)} stroke-width="2.4"/>`,
+  tender: (p, a) => `
+    <g transform="translate(${a.hand.x - 2} ${a.hand.y - 4})">
+      <path d="M-9 -2 L9 -2 L7 10 L-7 10 Z" fill="#c8964f" ${st(p)} stroke-width="2.4"/>
+      <path d="M-7 -2 Q0 -14 7 -2" fill="none" stroke="${p.line}" stroke-width="2.4"/>
+      <circle cx="-3" cy="-4" r="3" fill="${p.accent}"/><circle cx="3" cy="-5" r="3" fill="${p.hi}"/>
+    </g>
+    <path d="M${a.top.x} ${a.top.y + 2} Q${a.top.x - 2} ${a.top.y - 8} ${a.top.x - 8} ${a.top.y - 9} Q${a.top.x - 2} ${a.top.y - 3} ${a.top.x} ${a.top.y + 2} Z M${a.top.x} ${a.top.y + 2} Q${a.top.x + 3} ${a.top.y - 7} ${a.top.x + 9} ${a.top.y - 7} Q${a.top.x + 3} ${a.top.y - 1} ${a.top.x} ${a.top.y + 2} Z" fill="#7ccf6a" ${st(p)} stroke-width="2"/>`,
+  seer: (p, a) => `
+    <circle cx="${a.hand.x}" cy="${a.hand.y - 22}" r="7" fill="${p.hi}" ${st(p)} stroke-width="2.4"/>
+    <circle cx="${a.hand.x - 2}" cy="${a.hand.y - 24}" r="2.2" fill="#ffffff"/>
+    <path d="M${a.top.x - 5} ${a.top.y + 5} L${a.top.x} ${a.top.y - 2} L${a.top.x + 5} ${a.top.y + 5} L${a.top.x} ${a.top.y + 11} Z" fill="#b48cff" ${st(p)} stroke-width="2"/>`,
+  trickster: (p, a) => `
+    <path d="M${a.head.x - a.head.r - 1} ${a.head.y - 1} Q${a.head.x} ${a.head.y - 9} ${a.head.x + a.head.r + 1} ${a.head.y - 1} L${a.head.x + a.head.r - 1} ${a.head.y + 6} Q${a.head.x} ${a.head.y + 1} ${a.head.x - a.head.r + 1} ${a.head.y + 6} Z" fill="#3b2f5c" ${st(p)} stroke-width="2"/>
+    <path d="M${a.top.x - 12} ${a.top.y + 6} L${a.top.x - 16} ${a.top.y - 10} L${a.top.x} ${a.top.y + 2} L${a.top.x + 16} ${a.top.y - 10} L${a.top.x + 12} ${a.top.y + 6} Z" fill="${p.accent}" ${st(p)} stroke-width="2.4"/>
+    <circle cx="${a.top.x - 16}" cy="${a.top.y - 11}" r="3" fill="#ffd34d" ${st(p)} stroke-width="1.6"/>
+    <circle cx="${a.top.x + 16}" cy="${a.top.y - 11}" r="3" fill="#ffd34d" ${st(p)} stroke-width="1.6"/>`,
+};
+
+// --- Compositor ---------------------------------------------------------------
+
 function drawCreatureSVG(c) {
-  const rng = mulberry32(c.seed ^ 0xa47);
-  const cols = c.elements.map(e => ELEMENTS[e]?.color || '#888');
-  const darks = c.elements.map(e => ELEMENTS[e]?.dark || '#333');
-  const primary = cols[0], secondary = cols[1] || darks[0], tertiary = cols[2] || primary;
-  const gid = `g${c.seed.toString(36)}`;
-  const jitter = (base, amt) => base + (rng() - 0.5) * amt;
-
+  const rng = mulberry32((c.seed >>> 0) ^ 0xa47);
+  const variant = variantRoll(c.seed);
+  const p = paletteFor(c.element, variant);
+  const body = (BODIES[c.type] || BODIES.beast)(p);
   const parts = [];
-  // Multi-element gradient body fill.
-  parts.push(`<defs><linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0%" stop-color="${primary}"/>
-    <stop offset="60%" stop-color="${secondary}"/>
-    <stop offset="100%" stop-color="${tertiary}"/>
-  </linearGradient></defs>`);
 
-  // Rarity aura ring behind the body.
+  // Rarity aura ring behind everything.
   const auraOpacity = { common: 0, uncommon: 0.12, rare: 0.2, epic: 0.3, legendary: 0.42, mythic: 0.55 }[c.rarity] ?? 0;
-  if (auraOpacity > 0) {
-    parts.push(`<circle cx="50" cy="52" r="${jitter(40, 4).toFixed(1)}" fill="${primary}" opacity="${auraOpacity}"/>`);
-  }
+  if (auraOpacity > 0) parts.push(`<circle cx="50" cy="54" r="44" fill="${p.accent}" opacity="${auraOpacity}"/>`);
 
-  parts.push(bodyFor(c.archetype, rng, gid, primary, secondary));
+  // 1+2: body in element palette.
+  parts.push(body.svg);
 
-  // Coat pattern — spots or stripes, seed-chosen, clipped near the body mass.
+  // Variation: pattern on the belly region (none / spots / stripes).
   const patternRoll = rng();
-  const clipId = `cl${c.seed.toString(36)}`;
-  if (patternRoll < 0.55) {
-    parts.push(`<clipPath id="${clipId}"><ellipse cx="50" cy="55" rx="28" ry="26"/></clipPath>`);
-    const patCol = tertiary === primary ? darks[0] : tertiary;
-    if (patternRoll < 0.28) {
-      // Spots
-      let spots = '';
-      const n = 3 + Math.floor(rng() * 4);
+  const clipId = `cl${(c.seed >>> 0).toString(36)}${c.type[0]}`;
+  const b = body.belly;
+  if (patternRoll < 0.6) {
+    let marks = '';
+    if (patternRoll < 0.3) {
+      const n = 3 + Math.floor(rng() * 3);
       for (let i = 0; i < n; i++) {
-        spots += `<circle cx="${(30 + rng() * 40).toFixed(1)}" cy="${(40 + rng() * 30).toFixed(1)}" r="${(2 + rng() * 3).toFixed(1)}" fill="${patCol}" opacity="0.5"/>`;
+        marks += `<circle cx="${(b.cx - b.rx * 0.7 + rng() * b.rx * 1.4).toFixed(1)}" cy="${(b.cy - b.ry * 0.6 + rng() * b.ry * 1.2).toFixed(1)}" r="${(2.2 + rng() * 2).toFixed(1)}" fill="${p.shade}"/>`;
       }
-      parts.push(`<g clip-path="url(#${clipId})">${spots}</g>`);
     } else {
-      // Stripes
-      let stripes = '';
-      const n = 2 + Math.floor(rng() * 3);
+      const n = 2 + Math.floor(rng() * 2);
       for (let i = 0; i < n; i++) {
-        const x = 34 + i * (30 / n) + rng() * 4;
-        stripes += `<rect x="${x.toFixed(1)}" y="30" width="3.5" height="50" fill="${patCol}" opacity="0.4" transform="rotate(${jitter(12, 18).toFixed(0)} ${x.toFixed(1)} 55)"/>`;
+        const x = b.cx - b.rx * 0.5 + i * (b.rx / n);
+        marks += `<rect x="${x.toFixed(1)}" y="${b.cy - b.ry}" width="4" height="${b.ry * 2}" fill="${p.shade}" transform="rotate(14 ${x.toFixed(1)} ${b.cy})"/>`;
       }
-      parts.push(`<g clip-path="url(#${clipId})">${stripes}</g>`);
     }
+    parts.push(`<clipPath id="${clipId}"><ellipse cx="${b.cx}" cy="${b.cy}" rx="${b.rx}" ry="${b.ry}"/></clipPath><g clip-path="url(#${clipId})" opacity="0.75">${marks}</g>`);
   }
 
-  // Legendary+ get orbiting sparkles on top of the aura.
+  // Face: eyes on the head anchor (1–3, seeded).
+  const h = body.head;
+  const eyes = 1 + Math.floor(rng() * 3);
+  for (let i = 0; i < eyes; i++) {
+    const ex = h.x + (i - (eyes - 1) / 2) * h.r * 0.55;
+    const ey = h.y - h.r * 0.05;
+    parts.push(`<circle cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="3.4" fill="#fff" stroke="${p.line}" stroke-width="1.6"/>
+      <circle cx="${(ex + 0.6).toFixed(1)}" cy="${(ey + 0.4).toFixed(1)}" r="1.7" fill="#14161c"/>`);
+  }
+
+  // 3: class gear on top.
+  parts.push((GEAR[c.cls] || (() => ''))(p, body));
+
+  // Legendary+ sparkles.
   if (c.rarity === 'legendary' || c.rarity === 'mythic') {
     const n = c.rarity === 'mythic' ? 6 : 4;
     for (let i = 0; i < n; i++) {
       const ang = (i / n) * Math.PI * 2 + rng();
-      const sx = 50 + Math.cos(ang) * 42, sy = 52 + Math.sin(ang) * 40;
-      parts.push(`<path d="M${sx.toFixed(1)} ${(sy - 2.4).toFixed(1)} l1.4 2.4 -1.4 2.4 -1.4 -2.4 Z" fill="${primary}" opacity="0.9"/>`);
+      const sx = 50 + Math.cos(ang) * 44, sy = 52 + Math.sin(ang) * 42;
+      parts.push(`<path d="M${sx.toFixed(1)} ${(sy - 3).toFixed(1)} l1.8 3 -1.8 3 -1.8 -3 Z" fill="${p.hi}" stroke="${p.line}" stroke-width="0.8"/>`);
     }
   }
 
-  // Eyes — count varies by seed (1..3), glow color from last element.
-  const eyeCol = darks[darks.length - 1];
-  const eyes = 1 + Math.floor(rng() * 3);
-  for (let i = 0; i < eyes; i++) {
-    const ex = 44 + i * 7 - (eyes - 1) * 3 + jitter(0, 3);
-    const ey = jitter(36, 5);
-    parts.push(`<circle cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="3.2" fill="#fff"/>
-      <circle cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="1.6" fill="${eyeCol}"/>`);
-  }
-
-  // Element markings — one small motif per element beyond the first.
-  for (let i = 1; i < c.elements.length; i++) {
-    const mx = jitter(35 + i * 18, 6), my = jitter(66, 8);
-    parts.push(`<circle cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" r="${jitter(4, 2).toFixed(1)}" fill="${cols[i]}" opacity="0.85"/>`);
-  }
-
   // Tier notches along the bottom — quick visual read of fusion depth.
-  for (let i = 0; i < Math.min(c.tier, 12); i++) {
-    parts.push(`<rect x="${20 + i * 5.2}" y="95" width="3.4" height="3.4" rx="1" fill="${primary}" opacity="0.8"/>`);
+  for (let i = 0; i < Math.min(c.tier || 1, 12); i++) {
+    parts.push(`<rect x="${(20 + i * 5.2).toFixed(1)}" y="96" width="3.4" height="3.4" rx="1" fill="${p.base}" stroke="${p.line}" stroke-width="0.6"/>`);
   }
 
   return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">${parts.join('')}</svg>`;
 }
 
-/** Body silhouette per archetype — simple geometry, distinct at a glance. */
-function bodyFor(arch, rng, gid, primary, secondary) {
-  const j = (b, a) => (b + (rng() - 0.5) * a).toFixed(1);
-  const fill = `url(#${gid})`;
-  switch (arch) {
-    case 'Drake': return `
-      <path d="M50 ${j(20,4)} L${j(72,6)} ${j(45,4)} L${j(66,4)} 78 L${j(34,4)} 78 L${j(28,6)} ${j(45,4)} Z" fill="${fill}"/>
-      <path d="M28 45 L${j(12,6)} ${j(30,8)} L30 55 Z" fill="${secondary}"/>
-      <path d="M72 45 L${j(88,6)} ${j(30,8)} L70 55 Z" fill="${secondary}"/>`;
-    case 'Wisp': return `
-      <circle cx="50" cy="${j(45,6)}" r="${j(24,5)}" fill="${fill}" opacity="0.9"/>
-      <path d="M40 65 Q${j(50,10)} ${j(88,8)} 60 65 Z" fill="${fill}" opacity="0.6"/>`;
-    case 'Golem': return `
-      <rect x="${j(28,4)}" y="${j(30,4)}" width="44" height="46" rx="8" fill="${fill}"/>
-      <rect x="${j(20,4)}" y="${j(44,6)}" width="12" height="26" rx="5" fill="${secondary}"/>
-      <rect x="${j(68,4)}" y="${j(44,6)}" width="12" height="26" rx="5" fill="${secondary}"/>`;
-    case 'Serpent': return `
-      <path d="M20 80 Q${j(30,10)} ${j(40,12)} 50 55 Q${j(70,10)} ${j(38,10)} 72 ${j(28,6)} Q80 ${j(20,6)} 84 30 Q76 40 62 60 Q45 82 20 80 Z" fill="${fill}"/>
-      <circle cx="${j(76,4)}" cy="${j(30,4)}" r="9" fill="${fill}"/>`;
-    case 'Sprite': return `
-      <ellipse cx="50" cy="${j(52,4)}" rx="${j(16,4)}" ry="${j(24,4)}" fill="${fill}"/>
-      <ellipse cx="${j(32,4)}" cy="${j(42,6)}" rx="12" ry="6" fill="${secondary}" opacity="0.8" transform="rotate(-25 32 42)"/>
-      <ellipse cx="${j(68,4)}" cy="${j(42,6)}" rx="12" ry="6" fill="${secondary}" opacity="0.8" transform="rotate(25 68 42)"/>`;
-    case 'Fang': return `
-      <ellipse cx="50" cy="${j(58,4)}" rx="${j(28,4)}" ry="${j(20,4)}" fill="${fill}"/>
-      <path d="M${j(30,4)} 42 L${j(36,4)} ${j(22,6)} L44 42 Z" fill="${secondary}"/>
-      <path d="M${j(70,4)} 42 L${j(64,4)} ${j(22,6)} L56 42 Z" fill="${secondary}"/>`;
-    case 'Moth': return `
-      <ellipse cx="50" cy="55" rx="8" ry="${j(22,4)}" fill="${secondary}"/>
-      <ellipse cx="${j(32,4)}" cy="${j(48,6)}" rx="${j(17,4)}" ry="${j(23,5)}" fill="${fill}" opacity="0.9"/>
-      <ellipse cx="${j(68,4)}" cy="${j(48,6)}" rx="${j(17,4)}" ry="${j(23,5)}" fill="${fill}" opacity="0.9"/>`;
-    case 'Kraken': {
-      let tent = '';
-      for (let t = 0; t < 5; t++) {
-        tent += `<path d="M${32 + t * 9} 62 Q${j(30 + t * 9, 14)} ${j(88, 8)} ${36 + t * 9} 92" stroke="${fill}" stroke-width="6" fill="none" stroke-linecap="round"/>`;
-      }
-      return `<ellipse cx="50" cy="${j(42,4)}" rx="${j(24,4)}" ry="${j(20,4)}" fill="${fill}"/>${tent}`;
-    }
-    case 'Stag': return `
-      <ellipse cx="50" cy="${j(60,4)}" rx="${j(22,4)}" ry="${j(18,4)}" fill="${fill}"/>
-      <circle cx="50" cy="${j(36,3)}" r="11" fill="${fill}"/>
-      <path d="M42 28 L${j(32,6)} ${j(10,6)} M40 26 L${j(26,6)} ${j(20,6)}" stroke="${secondary}" stroke-width="3" fill="none" stroke-linecap="round"/>
-      <path d="M58 28 L${j(68,6)} ${j(10,6)} M60 26 L${j(74,6)} ${j(20,6)}" stroke="${secondary}" stroke-width="3" fill="none" stroke-linecap="round"/>`;
-    case 'Wyrm': {
-      // Coiled body: three stacked arcs shrinking upward, head on top.
-      return `
-      <path d="M22 78 Q50 ${j(94,6)} 78 78 Q80 68 72 66 Q50 ${j(78,6)} 28 66 Q20 68 22 78 Z" fill="${fill}"/>
-      <path d="M28 62 Q50 ${j(74,6)} 72 62 Q74 54 67 52 Q50 ${j(62,6)} 33 52 Q26 54 28 62 Z" fill="${fill}" opacity="0.92"/>
-      <path d="M34 48 Q50 ${j(58,5)} 66 48 Q68 41 62 39 Q50 ${j(47,5)} 38 39 Q32 41 34 48 Z" fill="${fill}" opacity="0.85"/>
-      <circle cx="${j(50,6)}" cy="${j(32,4)}" r="10" fill="${fill}"/>
-      <path d="M46 24 L${j(44,4)} ${j(14,4)} L50 22 Z" fill="${secondary}"/>
-      <path d="M54 24 L${j(56,4)} ${j(14,4)} L50 22 Z" fill="${secondary}"/>`;
-    }
-    case 'Basilisk': return `
-      <ellipse cx="50" cy="${j(62,4)}" rx="${j(26,4)}" ry="${j(16,3)}" fill="${fill}"/>
-      <circle cx="50" cy="${j(38,3)}" r="12" fill="${fill}"/>
-      <path d="M40 30 L${j(36,4)} ${j(18,5)} L46 28 Z M50 26 L50 ${j(12,5)} L54 26 Z M60 30 L${j(64,4)} ${j(18,5)} L54 28 Z" fill="${secondary}"/>
-      <path d="M76 62 Q${j(92,6)} ${j(56,10)} 86 ${j(42,8)}" stroke="${secondary}" stroke-width="5" fill="none" stroke-linecap="round"/>`;
-    case 'Imp': default: return `
-      <ellipse cx="50" cy="${j(56,4)}" rx="${j(18,4)}" ry="${j(20,4)}" fill="${fill}"/>
-      <path d="M38 40 L${j(34,4)} ${j(24,6)} L46 38 Z" fill="${secondary}"/>
-      <path d="M62 40 L${j(66,4)} ${j(24,6)} L54 38 Z" fill="${secondary}"/>
-      <path d="M62 70 Q${j(84,8)} ${j(72,10)} ${j(80,6)} ${j(52,8)}" stroke="${secondary}" stroke-width="4" fill="none" stroke-linecap="round"/>`;
-  }
+/** Colour variant from seed (mirrors creature.js variantOf; duplicated here
+ *  so the art module stays self-contained for a future swap). */
+function variantRoll(seed) {
+  const r = mulberry32((seed >>> 0) ^ 0x7a71)();
+  return r < 0.70 ? 0 : r < 0.92 ? 1 : 2;
 }
